@@ -103,9 +103,9 @@ def delta_k_type_1(qsx, qix, qsy, qiy, thetap, omegap, omegai, omegas):
     :param omegai: Angular frequency of the idler beam
     :param omegas: Angular frequency of the signal beam
     """
-    lambdas = C / (2 * np.pi * omegas) # ?
-    lambdai = C / (2 * np.pi * omegai) # ?
-    lambdap = C / (2 * np.pi * omegap) # ?
+    lambdas = (2 * np.pi * C) / omegas # ?
+    lambdai = (2 * np.pi * C) / omegai # ?
+    lambdap = (2 * np.pi * C) / omegap # ?
 
     qpx = qsx + qix # Conservation of momentum?
     qpy = qsy + qiy # Conservation of momentum?
@@ -116,6 +116,7 @@ def delta_k_type_1(qsx, qix, qsy, qiy, thetap, omegap, omegai, omegas):
     C / (2 * eta(thetap, lambdap) * omegap) * (beta(thetap, lambdap)**2 * qpx**2 + gamma(thetap, lambdap)**2 * qpy**2) + \
     alpha(thetap, lambdap) * (qsx + qix) - C / (2 * n_o(lambdas) * omegas) * qs_abs**2 - \
     C / (2 * n_o(lambdai) * omegai) * qi_abs**2
+    import pdb; pdb.set_trace()
 
     return delta_k
 
@@ -143,11 +144,9 @@ def calculate_pair_generation_rate(x_pos, y_pos, thetap, omegap, omegai, omegas)
     :param y: Location in the y direction a distance z away from the crystal
     """
     # Multiply by detector efficiencies, and a constant dependent on epsilon_0 and chi_2
-    # V is pump shape, nominally dependent on qp.
-    V = 1 # ? Guess
 
     # z is distance away from crystal along pump propagation direction
-    z = 35e-3 # 35 millimeters
+    z_pos = 35e-3 # 35 millimeters
     ks = omegas / C # ? Guess? divide by n?
     ki = omegai / C # ? Guess? divide by n?
     kpz = (omegas + omegai) / C # This is on page 8 in the bottom paragraph on the left column
@@ -159,44 +158,60 @@ def calculate_pair_generation_rate(x_pos, y_pos, thetap, omegap, omegai, omegas)
         qs_abs = np.sqrt(qsx**2 + qsy**2)
         qi_abs = np.sqrt(qix**2 + qiy**2)
 
-        rate = np.exp(1j * (ks + ki) * z) * pump_function(qix + qsx, qiy + qsy, kpz, omegap) * phase_matching(delta_k_type_1(qsx, qix, qsy, qiy, thetap, omegap, omegai, omegas), crystal_length) * \
-        np.exp(1j * (qs_dot_rhos + qi_dot_rhoi - qs_abs**2 * z / (2 * ks) - qi_abs**2 * z / (2 * ki)))
+        # qix + qsx ? pump_function
+    #    integrand = np.exp(1j * (ks + ki) * z_pos) * pump_function(qix + qsx, qiy + qsy, kpz, omegap) * phase_matching(delta_k_type_1(qsx, qix, qsy, qiy, thetap, omegap, omegai, omegas), crystal_length) * \
+    #    np.exp(1j * (qs_dot_rhos + qi_dot_rhoi - qs_abs**2 * z_pos / (2 * ks) - qi_abs**2 * z_pos / (2 * ki)))
 
         # DEBUG
-        # rate = pump_function(qix + qsx, qiy + qsy, kpz, omegap)
-        # rate = delta_k_type_1(qsx, qix, qsy, qiy, thetap, omegap, omegai, omegas)
-        # rate = np.exp(1j * (qs_dot_rhos + qi_dot_rhoi - qs_abs**2 * z / (2 * ks) - qi_abs**2 * z / (2 * ki)))
-        return rate
-    dqix = (omegai / C)*0.001 # ?
-    dqiy = (omegai / C)*0.001 # 
-    dqsx = (omegas / C)*0.001 # 
-    dqsy = (omegas / C)*0.001 # ? Guess
+        # integrand = pump_function(qix + qsx, qiy + qsy, kpz, omegap)
+#        integrand = phase_matching(qix, crystal_length)
+        integrand = phase_matching(delta_k_type_1(qsx, qix, qsy, qiy, thetap, omegap, omegai, omegas), crystal_length) 
+        #integrand = delta_k_type_1(qsx, qix, qsy, qiy, thetap, omegap, omegai, omegas)
+        #integrand = np.exp(1j * (qs_dot_rhos + qi_dot_rhoi - qs_abs**2 * z_pos / (2 * ks) - qi_abs**2 * z_pos / (2 * ki)))
+        return integrand
+    dqix = (omegai / C)*0.1 # ?
+    dqiy = (omegai / C)*0.1 # 
+    dqsx = (omegas / C)*0.1 # 
+    dqsy = (omegas / C)*0.1 # ? Guess
 
     # print(rate_integrand(dqix, dqix, dqix, dqix))    
     # print(np.abs(rate_integrand(x, 0, 0, 0)))
     # plt.plot(x, np.abs(rate_integrand(x, 0, 0, 0))**2) # Plot the pump function
     x = np.linspace(-dqix, dqix, 1000)
-    y = np.linspace(-dqix, dqix, 1000)
+    y = np.linspace(-dqiy, dqiy, 1000)
     X, Y = np.meshgrid(x, y)
-    Z = np.abs(rate_integrand(X, Y, 0, 0))
-    # plt.imshow(Z, extent=(x.min(), x.max(), y.min(), y.max()), origin='lower', cmap='gray')
-    # plt.xlabel("qx")
-    # plt.ylabel("qy")
-    # import pdb; pdb.set_trace()
+    # Momentum must be conserved, so qix = -qsx and qiy = -qiy
+    # (Assume qpx and qpy negligible? Though they appear in the expression for the pump beam)
+    Z = np.abs(rate_integrand(X, Y, -X, -Y))
 
-    # #### Hack the integral
-    real_part = np.sum(np.sum(np.real(rate_integrand(X, Y, 0, 0))))
-    imag_part = np.sum(np.sum(np.imag(rate_integrand(X, Y, 0, 0))))
-    result1 = real_part + 1j * imag_part
+   # X, Y, X2, Y2 = np.meshgrid(x, y, x, y)
+#    import pdb; pdb.set_trace()
+#    Z = np.abs(rate_integrand(X, Y, X2, Y2))
+    import pdb; pdb.set_trace()
+#    Z = np.sum(np.sum(Z, axis=0), axis=0)
 
-    real_part = np.sum(np.sum(np.real(rate_integrand(0, 0, X, Y))))
-    imag_part = np.sum(np.sum(np.imag(rate_integrand(0, 0, X, Y))))
-    result2 = real_part + 1j * imag_part
-    result = result1 + result2
+    plt.imshow(Z, extent=(x.min(), x.max(), y.min(), y.max()), origin='lower', cmap='gray')
+    plt.xlabel("qx")
+    plt.ylabel("qy")
+    import pdb; pdb.set_trace()
+
+
+    #### Hack the integral
+    real_part = np.sum(np.sum(np.sum(np.sum(np.real(rate_integrand(X, Y, X2, Y2))))))
+    imag_part = np.sum(np.sum(np.sum(np.sum(np.imag(rate_integrand(X, Y, X2, Y2))))))
+    result = real_part + 1j * imag_part
+
     error_estimate = 0
 
 
     # #### Hack the integral
+    # real_part = np.sum(np.sum(np.real(rate_integrand(X, Y, 0, 0))))
+    # imag_part = np.sum(np.sum(np.imag(rate_integrand(X, Y, 0, 0))))
+    # result = real_part + 1j * imag_part
+
+    # error_estimate = 0
+
+    # # #### Hack the integral
     # real_part = np.sum(np.sum(np.real(rate_integrand(0, 0, 0, 0))))
     # imag_part = np.sum(np.sum(np.imag(rate_integrand(0, 0, 0, 0))))
     # result = real_part + 1j * imag_part
@@ -216,6 +231,8 @@ def plot_rings():
     """ Plot entangled pair rings. """
     # Set parameters
     thetap = 28.95 * np.pi / 180
+    #thetap = 30 * np.pi / 180
+
     omegap = (2 * np.pi * C) / pump_wavelength # ?
     omegai = (2 * np.pi * C) / down_conversion_wavelength # ?
     omegas = (2 * np.pi * C) / down_conversion_wavelength # ?
@@ -230,26 +247,27 @@ def plot_rings():
 
     # Plot beam in real space
 #    span = 100e-6 #??
-    span = 1e-3 #??
-    x = np.linspace(-span, span, 50)
+    # span = 3e-3 #??
+    # x = np.linspace(-span, span, 50)
 
-    calculate_pair_generation_rate_vec = np.vectorize(calculate_pair_generation_rate)
-    z = calculate_pair_generation_rate_vec(x, 0, thetap, omegap, omegai, omegas)
-    plt.figure(figsize=(8, 6))
-    plt.plot(x, z)
+    # calculate_pair_generation_rate_vec = np.vectorize(calculate_pair_generation_rate)
+    # z = calculate_pair_generation_rate_vec(x, 0, thetap, omegap, omegai, omegas)
+    # plt.figure(figsize=(8, 6))
+    # plt.plot(x, z)
   
-    plt.title( "BBO crystal entangled photons" ) 
-    plt.show() 
+    # plt.title( "BBO crystal entangled photons" ) 
+    # plt.show() 
 
 
 
 
-    import pdb; pdb.set_trace()
+#    import pdb; pdb.set_trace()
 
     # Create a grid of x and y values
     span = 100e-6 #??
-    x = np.linspace(-span, span, 2)
-    y = np.linspace(-span, span, 2)
+    span = 1e-3
+    x = np.linspace(-span, span, 30)
+    y = np.linspace(-span, span, 30)
     X, Y = np.meshgrid(x, y)
 
 #    Z = calculate_pair_generation_rate(X, Y, thetap, omegap, omegai, omegas)
@@ -258,7 +276,9 @@ def plot_rings():
 #    Z = calculate_pair_generation_rate(x=4e-6, y=0, thetap=thetap, omegap=omegap, omegai=omegai, omegas=omegas)
     plt.figure(figsize=(8, 6))
     plt.imshow(Z, origin='lower', cmap='gray')
-  
+    plt.xlabel("x")
+    plt.ylabel("y")
+
     plt.title( "BBO crystal entangled photons" ) 
     plt.show() 
 
