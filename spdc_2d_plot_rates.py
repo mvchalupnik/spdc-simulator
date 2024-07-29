@@ -135,7 +135,7 @@ def pump_function(qpx, qpy, kp, omega):
 
     return V
 
-def calculate_pair_generation_rate(x, y, thetap, omegap, omegai, omegas):
+def calculate_pair_generation_rate(x_pos, y_pos, thetap, omegap, omegai, omegas):
     """
     Return the entangled pair generation rate at location (x, y, z) from the crystal. Equation 84.
 
@@ -154,8 +154,8 @@ def calculate_pair_generation_rate(x, y, thetap, omegap, omegai, omegas):
     omegap = omegas + omegai # This is on page 8 in the bottom paragraph on the left column
 
     def rate_integrand(qix, qiy, qsx, qsy):
-        qs_dot_rhos = (qsx * x + qsy * y)
-        qi_dot_rhoi = (qix * x + qiy * y)
+        qs_dot_rhos = (qsx * x_pos + qsy * y_pos)
+        qi_dot_rhoi = (qix * x_pos + qiy * y_pos)
         qs_abs = np.sqrt(qsx**2 + qsy**2)
         qi_abs = np.sqrt(qix**2 + qiy**2)
 
@@ -167,14 +167,14 @@ def calculate_pair_generation_rate(x, y, thetap, omegap, omegai, omegas):
         # rate = delta_k_type_1(qsx, qix, qsy, qiy, thetap, omegap, omegai, omegas)
         # rate = np.exp(1j * (qs_dot_rhos + qi_dot_rhoi - qs_abs**2 * z / (2 * ks) - qi_abs**2 * z / (2 * ki)))
         return rate
-    dqix = (omegai / C)*0.01 # ?
-    dqiy = (omegai / C)*0.01 # 
-    dqsx = (omegas / C)*0.01 # 
-    dqsy = (omegas / C)*0.01 # ? Guess
+    dqix = (omegai / C)*0.001 # ?
+    dqiy = (omegai / C)*0.001 # 
+    dqsx = (omegas / C)*0.001 # 
+    dqsy = (omegas / C)*0.001 # ? Guess
 
-    print(rate_integrand(dqix, dqix, dqix, dqix))    
-    print(np.abs(rate_integrand(x, 0, 0, 0)))
-    plt.plot(x, np.abs(rate_integrand(x, 0, 0, 0))**2) # Plot the pump function
+    # print(rate_integrand(dqix, dqix, dqix, dqix))    
+    # print(np.abs(rate_integrand(x, 0, 0, 0)))
+    # plt.plot(x, np.abs(rate_integrand(x, 0, 0, 0))**2) # Plot the pump function
     x = np.linspace(-dqix, dqix, 1000)
     y = np.linspace(-dqix, dqix, 1000)
     X, Y = np.meshgrid(x, y)
@@ -182,12 +182,28 @@ def calculate_pair_generation_rate(x, y, thetap, omegap, omegai, omegas):
     plt.imshow(Z, extent=(x.min(), x.max(), y.min(), y.max()), origin='lower', cmap='gray')
     plt.xlabel("qx")
     plt.ylabel("qy")
-
     import pdb; pdb.set_trace()
-    opts = {"limit": 2}
-    result, error_estimate = complex_quadrature(rate_integrand, [[-dqix, dqix], [-dqiy, dqiy], [-dqsx, dqsx], [-dqsy, dqsy]], opts=opts)
+
+    # #### Hack the integral
+    real_part = np.sum(np.sum(np.real(rate_integrand(X, Y, 0, 0))))
+    imag_part = np.sum(np.sum(np.imag(rate_integrand(X, Y, 0, 0))))
+    result = real_part + 1j * imag_part
+    error_estimate = 0
+
+    # #### Hack the integral
+    # real_part = np.sum(np.sum(np.real(rate_integrand(0, 0, 0, 0))))
+    # imag_part = np.sum(np.sum(np.imag(rate_integrand(0, 0, 0, 0))))
+    # result = real_part + 1j * imag_part
+    # error_estimate = 0
+
+
+    #### Use Scipy for the integral
+#    opts = {"limit": 2}
+    opts = {}
+#    result, error_estimate = complex_quadrature(rate_integrand, [[-dqix, dqix], [-dqiy, dqiy], [-dqsx, dqsx], [-dqsy, dqsy]], opts=opts)
     print(f"Integral result: {result}")
     print(f"Error estimate: {error_estimate}")
+    ####
     return np.abs(result)**2 
 
 def plot_rings():
@@ -207,8 +223,9 @@ def plot_rings():
 
 
     # Plot beam in real space
-    span = 100e-6 #??
-    x = np.linspace(-span, span, 4)
+#    span = 100e-6 #??
+    span = 10e-3 #??
+    x = np.linspace(-span, span, 10)
 
     calculate_pair_generation_rate_vec = np.vectorize(calculate_pair_generation_rate)
     z = calculate_pair_generation_rate_vec(x, 0, thetap, omegap, omegai, omegas)
