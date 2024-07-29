@@ -153,37 +153,38 @@ def calculate_pair_generation_rate(x, y, thetap, omegap, omegai, omegas):
     kpz = (omegas + omegai) / C # This is on page 8 in the bottom paragraph on the left column
     omegap = omegas + omegai # ??
 
-    def f(qix, qiy, qsx, qsy):
+    def rate_integrand(qix, qiy, qsx, qsy):
         qs_dot_rhos = (qsx * x + qsy * y)
         qi_dot_rhoi = (qix * x + qiy * y)
         qs_abs = np.sqrt(qsx**2 + qsy**2)
         qi_abs = np.sqrt(qix**2 + qiy**2)
 
-        # rate = np.exp(1j * (ks + ki) * z) * pump_function(qix + qsx, qiy + qsy, kz, omegap) * delta_k_type_1(qsx, qix, qsy, qiy, thetap, omegap, omegai, omegas) * \
-        # np.exp(1j * (qs_dot_rhos + qi_dot_rhoi - qs_abs**2 * z / (2 * ks) - qi_abs**2 * z / (2 * ki)))
+        rate = np.exp(1j * (ks + ki) * z) * pump_function(qix + qsx, qiy + qsy, kpz, omegap) * delta_k_type_1(qsx, qix, qsy, qiy, thetap, omegap, omegai, omegas) * \
+        np.exp(1j * (qs_dot_rhos + qi_dot_rhoi - qs_abs**2 * z / (2 * ks) - qi_abs**2 * z / (2 * ki)))
 
         # DEBUG
-        rate = pump_function(qix + qsx, qiy + qsy, kpz, omegap)
+        # rate = pump_function(qix + qsx, qiy + qsy, kpz, omegap)
+        # rate = delta_k_type_1(qsx, qix, qsy, qiy, thetap, omegap, omegai, omegas)
+        # rate = np.exp(1j * (qs_dot_rhos + qi_dot_rhoi - qs_abs**2 * z / (2 * ks) - qi_abs**2 * z / (2 * ki)))
         return rate
-    dqix = (omegai / C)*0.001 # ? Guess? divide by n?
-    dqiy = (omegai / C)*0.001 # ? Guess
-    dqsx = (omegas / C)*0.001 # ? Guess
-    dqsy = (omegas / C)*0.001 # ? Guess
+    dqix = (omegai / C)*0.0001 # ?
+    dqiy = (omegai / C)*0.0001 # 
+    dqsx = (omegas / C)*0.0001 # 
+    dqsy = (omegas / C)*0.0001 # ? Guess
 
-    print(f(dqix, dqix, dqix, dqix))
-    
-    print(np.abs(f(x, 0, 0, 0)))
-    plt.plot(x, np.abs(f(x, 0, 0, 0))) # Plot the pump function
+    print(rate_integrand(dqix, dqix, dqix, dqix))    
+    print(np.abs(rate_integrand(x, 0, 0, 0)))
+    plt.plot(x, np.abs(rate_integrand(x, 0, 0, 0))**2) # Plot the pump function
     x = np.linspace(-dqix, dqix, 1000)
     y = np.linspace(-dqix, dqix, 1000)
     X, Y = np.meshgrid(x, y)
-    Z = np.abs(f(X, Y, 0, 0))
+    Z = np.abs(rate_integrand(X, Y, 0, 0))
     plt.imshow(Z, extent=(x.min(), x.max(), y.min(), y.max()), origin='lower', cmap='gray')
-
-
+    plt.xlabel("qx")
+    plt.ylabel("qy")
 
     import pdb; pdb.set_trace()
-    result, error_estimate = complex_quadrature(f, [[-dqix, dqix], [-dqiy, dqiy], [-dqsx, dqsx], [-dqsy, dqsy]])
+    result, error_estimate = complex_quadrature(rate_integrand, [[-dqix, dqix], [-dqiy, dqiy], [-dqsx, dqsx], [-dqsy, dqsy]])
     print(f"Integral result: {result}")
     print(f"Error estimate: {error_estimate}")
     return np.abs(result)**2 
@@ -191,24 +192,27 @@ def calculate_pair_generation_rate(x, y, thetap, omegap, omegai, omegas):
 def plot_rings():
     """ Plot entangled pair rings. """
     # Set parameters
-    thetap = 28.74 * np.pi / 180
+    thetap = 28.95 * np.pi / 180
     omegap = (2 * np.pi * C) / pump_wavelength # ?
     omegai = (2 * np.pi * C) / down_conversion_wavelength # ?
     omegas = (2 * np.pi * C) / down_conversion_wavelength # ?
 
     # Create a grid of x and y values
     span = 100e-6
-    x = np.linspace(-span, span, 10)
-    y = np.linspace(-span, span, 10)
+    x = np.linspace(-span, span, 2)
+    y = np.linspace(-span, span, 2)
     X, Y = np.meshgrid(x, y)
 
 #    Z = calculate_pair_generation_rate(X, Y, thetap, omegap, omegai, omegas)
-    Z = calculate_pair_generation_rate(x=4e-6, y=0, thetap=thetap, omegap=omegap, omegai=omegai, omegas=omegas)
-    # plt.figure(figsize=(8, 6))
-    # plt.imshow(Z, extent=(x.min(), x.max(), y.min(), y.max()), origin='lower', cmap='gray')
+    calculate_pair_generation_rate_vec = np.vectorize(calculate_pair_generation_rate)
+    Z = calculate_pair_generation_rate_vec(X, Y, thetap, omegap, omegai, omegas)
+#    Z = calculate_pair_generation_rate(x=4e-6, y=0, thetap=thetap, omegap=omegap, omegai=omegai, omegas=omegas)
+    import pdb; pdb.set_trace()
+    plt.figure(figsize=(8, 6))
+    plt.imshow(Z, origin='lower', cmap='gray')
   
-    # plt.title( "BBO crystal entangled photons" ) 
-    # plt.show() 
+    plt.title( "BBO crystal entangled photons" ) 
+    plt.show() 
 
 def main():
     """ main function """
