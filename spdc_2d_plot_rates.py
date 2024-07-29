@@ -9,6 +9,59 @@ down_conversion_wavelength = 810e-9 # Downcoverted photon wavelength in meters
 crystal_length = 0.002    # Length of the nonlinear crystal in meters
 C = 2.99792e8 # Speed of light, in meters per second
 
+
+def monte_carlo_integration_complex(f, s, num_samples=100000):
+    # Generate random samples within the bounds [-s, s] for each variable's real and imaginary parts
+    real_part_samples = np.random.uniform(-s, s, (num_samples, 4))
+    imag_part_samples = np.random.uniform(-s, s, (num_samples, 4))
+    
+    z1_samples = real_part_samples[:, 0] + 1j * imag_part_samples[:, 0]
+    z2_samples = real_part_samples[:, 1] + 1j * imag_part_samples[:, 1]
+    z3_samples = real_part_samples[:, 2] + 1j * imag_part_samples[:, 2]
+    z4_samples = real_part_samples[:, 3] + 1j * imag_part_samples[:, 3]
+    
+    # Evaluate the function at each sample point
+    func_values = f(z1_samples, z2_samples, z3_samples, z4_samples)
+    
+    # Separate the real and imaginary parts
+    real_values = np.real(func_values)
+    imag_values = np.imag(func_values)
+    
+    # Calculate the average value of the real and imaginary parts
+    avg_real_value = np.mean(real_values)
+    avg_imag_value = np.mean(imag_values)
+    
+    # The volume of the integration region in complex space
+    volume = (2 * s)**8
+    
+    # Estimate the integral as the average value times the volume
+    integral_estimate_real = avg_real_value * volume
+    integral_estimate_imag = avg_imag_value * volume
+    
+    return integral_estimate_real + 1j * integral_estimate_imag
+
+def monte_carlo_integration(f, s, num_samples=10000):
+    # Generate random samples within the bounds [-s, s] for each variable
+    x1_samples = np.random.uniform(-s, s, num_samples)
+    y1_samples = np.random.uniform(-s, s, num_samples)
+#    x2_samples = np.random.uniform(s, -s, num_samples)
+    x2_samples = np.random.uniform(-s, s, num_samples)
+    y2_samples = np.random.uniform(-s, s, num_samples)
+    
+    # Evaluate the function at each sample point
+    func_values = f(x1_samples, y1_samples, x2_samples, y2_samples)
+    
+    # Calculate the average value of the function
+    avg_value = np.mean(func_values)
+    
+    # The volume of the integration region
+    volume = (2 * s)**4
+    
+    # Estimate the integral as the average value times the volume
+    integral_estimate = avg_value * volume
+    
+    return integral_estimate
+
 def complex_quadrature(func, lims, **kwargs):
     def real_func(x1, x2, x3, x4):
         return np.real(func(x1, x2, x3, x4))
@@ -17,6 +70,16 @@ def complex_quadrature(func, lims, **kwargs):
     real_integral = integrate.nquad(real_func, lims, **kwargs)
     imag_integral = integrate.nquad(imag_func, lims, **kwargs)
     return (real_integral[0] + 1j*imag_integral[0], real_integral[1] + 1j * imag_integral[1])
+
+def complex_quadrature2var(func, lims, **kwargs):
+    def real_func(x1, x2):
+        return np.real(func(x1, x2))
+    def imag_func(x1, x2):
+        return np.imag(func(x1, x2))
+    real_integral = integrate.nquad(real_func, lims, **kwargs)
+    imag_integral = integrate.nquad(imag_func, lims, **kwargs)
+    return (real_integral[0] + 1j*imag_integral[0], real_integral[1] + 1j * imag_integral[1])
+
 
 # Sellmeier equations for BBO
 def n_o(wavelength):
@@ -116,7 +179,6 @@ def delta_k_type_1(qsx, qix, qsy, qiy, thetap, omegap, omegai, omegas):
     C / (2 * eta(thetap, lambdap) * omegap) * (beta(thetap, lambdap)**2 * qpx**2 + gamma(thetap, lambdap)**2 * qpy**2) + \
     alpha(thetap, lambdap) * (qsx + qix) - C / (2 * n_o(lambdas) * omegas) * qs_abs**2 - \
     C / (2 * n_o(lambdai) * omegai) * qi_abs**2
-    import pdb; pdb.set_trace()
 
     return delta_k
 
@@ -152,44 +214,47 @@ def calculate_pair_generation_rate(x_pos, y_pos, thetap, omegap, omegai, omegas)
     kpz = (omegas + omegai) / C # This is on page 8 in the bottom paragraph on the left column
     omegap = omegas + omegai # This is on page 8 in the bottom paragraph on the left column
 
-    def rate_integrand(qix, qiy, qsx, qsy):
+    def rate_integrand(qix, qiy, qsx, qsy): # if qix always = -qsx, rewrite as a func of two variable instead of four
+    # def rate_integrand(qix, qiy): # if qix always = -qsx, rewrite as a func of two variable instead of four
+    #     qsx = -qix #??? here qpx is always 0
+    #     qsy = -qiy #??? here qpy is always 0
+
+#        import pdb; pdb.set_trace()
         qs_dot_rhos = (qsx * x_pos + qsy * y_pos)
         qi_dot_rhoi = (qix * x_pos + qiy * y_pos)
         qs_abs = np.sqrt(qsx**2 + qsy**2)
         qi_abs = np.sqrt(qix**2 + qiy**2)
 
         # qix + qsx ? pump_function
-    #    integrand = np.exp(1j * (ks + ki) * z_pos) * pump_function(qix + qsx, qiy + qsy, kpz, omegap) * phase_matching(delta_k_type_1(qsx, qix, qsy, qiy, thetap, omegap, omegai, omegas), crystal_length) * \
-    #    np.exp(1j * (qs_dot_rhos + qi_dot_rhoi - qs_abs**2 * z_pos / (2 * ks) - qi_abs**2 * z_pos / (2 * ki)))
+#        integrand = np.exp(1j * (ks + ki) * z_pos) * pump_function(qix + qsx, qiy + qsy, kpz, omegap) * phase_matching(delta_k_type_1(qsx, qix, qsy, qiy, thetap, omegap, omegai, omegas), crystal_length) * \
+#        np.exp(1j * (qs_dot_rhos + qi_dot_rhoi - qs_abs**2 * z_pos / (2 * ks) - qi_abs**2 * z_pos / (2 * ki)))
 
         # DEBUG
-        # integrand = pump_function(qix + qsx, qiy + qsy, kpz, omegap)
+        integrand = pump_function(qix + qsx, qiy + qsy, kpz, omegap)
 #        integrand = phase_matching(qix, crystal_length)
-        integrand = phase_matching(delta_k_type_1(qsx, qix, qsy, qiy, thetap, omegap, omegai, omegas), crystal_length) 
+        #integrand = phase_matching(delta_k_type_1(qsx, qix, qsy, qiy, thetap, omegap, omegai, omegas), crystal_length) 
         #integrand = delta_k_type_1(qsx, qix, qsy, qiy, thetap, omegap, omegai, omegas)
-        #integrand = np.exp(1j * (qs_dot_rhos + qi_dot_rhoi - qs_abs**2 * z_pos / (2 * ks) - qi_abs**2 * z_pos / (2 * ki)))
-        return integrand
-    dqix = (omegai / C)*0.1 # ?
-    dqiy = (omegai / C)*0.1 # 
-    dqsx = (omegas / C)*0.1 # 
-    dqsy = (omegas / C)*0.1 # ? Guess
+   #     integrand = np.exp(1j * (qs_dot_rhos + qi_dot_rhoi - qs_abs**2 * z_pos / (2 * ks) - qi_abs**2 * z_pos / (2 * ki)))
+#        integrand = np.exp(1j * (qs_dot_rhos))
+#        integrand = np.exp(1j * (qs_dot_rhos - qs_abs**2 * z_pos / (2 * ks)))
+#        integrand = np.exp(1j * (qs_dot_rhos + qi_dot_rhoi)) # This is always 1
 
-    # print(rate_integrand(dqix, dqix, dqix, dqix))    
-    # print(np.abs(rate_integrand(x, 0, 0, 0)))
-    # plt.plot(x, np.abs(rate_integrand(x, 0, 0, 0))**2) # Plot the pump function
+   #     import pdb; pdb.set_trace()
+        return integrand
+    dqix = (omegai / C)*0.004 # ?
+    dqiy = (omegai / C)*0.004 # 
+    dqsx = (omegas / C)*0.004 # 
+    dqsy = (omegas / C)*0.004 # ? Guess
+
     x = np.linspace(-dqix, dqix, 1000)
     y = np.linspace(-dqiy, dqiy, 1000)
     X, Y = np.meshgrid(x, y)
-    # Momentum must be conserved, so qix = -qsx and qiy = -qiy
+    # Momentum must be conserved, so qix = -qsx and qiy = -qiy?
     # (Assume qpx and qpy negligible? Though they appear in the expression for the pump beam)
     Z = np.abs(rate_integrand(X, Y, -X, -Y))
+    Z = np.abs(rate_integrand(X, Y, X, Y))
 
-   # X, Y, X2, Y2 = np.meshgrid(x, y, x, y)
-#    import pdb; pdb.set_trace()
-#    Z = np.abs(rate_integrand(X, Y, X2, Y2))
-    import pdb; pdb.set_trace()
-#    Z = np.sum(np.sum(Z, axis=0), axis=0)
-
+    # Z = np.abs(rate_integrand(X, Y))
     plt.imshow(Z, extent=(x.min(), x.max(), y.min(), y.max()), origin='lower', cmap='gray')
     plt.xlabel("qx")
     plt.ylabel("qy")
@@ -197,9 +262,15 @@ def calculate_pair_generation_rate(x_pos, y_pos, thetap, omegap, omegai, omegas)
 
 
     #### Hack the integral
-    real_part = np.sum(np.sum(np.sum(np.sum(np.real(rate_integrand(X, Y, X2, Y2))))))
-    imag_part = np.sum(np.sum(np.sum(np.sum(np.imag(rate_integrand(X, Y, X2, Y2))))))
-    result = real_part + 1j * imag_part
+    # Bring rate_integrand outside to calculate only once
+    # real_part = np.sum(np.sum(np.sum(np.sum(np.real(rate_integrand(X, Y))))))
+    # imag_part = np.sum(np.sum(np.sum(np.sum(np.imag(rate_integrand(X, Y))))))
+    # result = real_part + 1j * imag_part
+
+#    result = np.sum(np.sum(np.sum(np.sum(rate_integrand(X, Y)))))
+
+    result = monte_carlo_integration(rate_integrand, dqix)
+    #0.04 gives bad result even for just the spatially varying part of the integrandwith .3e-3 span (0.004 is good with 10,000 points)
 
     error_estimate = 0
 
@@ -222,6 +293,8 @@ def calculate_pair_generation_rate(x_pos, y_pos, thetap, omegap, omegai, omegas)
 #    opts = {"limit": 2}
     opts = {}
 #    result, error_estimate = complex_quadrature(rate_integrand, [[-dqix, dqix], [-dqiy, dqiy], [-dqsx, dqsx], [-dqsy, dqsy]], opts=opts)
+#    result, error_estimate = complex_quadrature2var(rate_integrand, [[-dqix, dqix], [-dqiy, dqiy]], opts=opts)
+
     print(f"Integral result: {result}")
     print(f"Error estimate: {error_estimate}")
     ####
@@ -231,6 +304,7 @@ def plot_rings():
     """ Plot entangled pair rings. """
     # Set parameters
     thetap = 28.95 * np.pi / 180
+#    thetap = 28.64 * np.pi / 180
     #thetap = 30 * np.pi / 180
 
     omegap = (2 * np.pi * C) / pump_wavelength # ?
@@ -246,41 +320,41 @@ def plot_rings():
 
 
     # Plot beam in real space
-#    span = 100e-6 #??
-    # span = 3e-3 #??
-    # x = np.linspace(-span, span, 50)
-
-    # calculate_pair_generation_rate_vec = np.vectorize(calculate_pair_generation_rate)
-    # z = calculate_pair_generation_rate_vec(x, 0, thetap, omegap, omegai, omegas)
-    # plt.figure(figsize=(8, 6))
-    # plt.plot(x, z)
-  
-    # plt.title( "BBO crystal entangled photons" ) 
-    # plt.show() 
-
-
-
-
-#    import pdb; pdb.set_trace()
-
-    # Create a grid of x and y values
     span = 100e-6 #??
-    span = 1e-3
-    x = np.linspace(-span, span, 30)
-    y = np.linspace(-span, span, 30)
-    X, Y = np.meshgrid(x, y)
+    span = .3e-3 #??
+    x = np.linspace(-span, span, 500)
 
-#    Z = calculate_pair_generation_rate(X, Y, thetap, omegap, omegai, omegas)
     calculate_pair_generation_rate_vec = np.vectorize(calculate_pair_generation_rate)
-    Z = calculate_pair_generation_rate_vec(X, Y, thetap, omegap, omegai, omegas)
-#    Z = calculate_pair_generation_rate(x=4e-6, y=0, thetap=thetap, omegap=omegap, omegai=omegai, omegas=omegas)
+    z = calculate_pair_generation_rate_vec(x, 0, thetap, omegap, omegai, omegas)
     plt.figure(figsize=(8, 6))
-    plt.imshow(Z, origin='lower', cmap='gray')
-    plt.xlabel("x")
-    plt.ylabel("y")
-
+    plt.plot(x, z)
+  
     plt.title( "BBO crystal entangled photons" ) 
     plt.show() 
+
+
+
+
+#     import pdb; pdb.set_trace()
+
+#     # Create a grid of x and y values
+# #    span = 100e-6 #??
+#     span = .1e-3
+#     x = np.linspace(-span, span, 40)
+#     y = np.linspace(-span, span, 40)
+#     X, Y = np.meshgrid(x, y)
+
+# #    Z = calculate_pair_generation_rate(X, Y, thetap, omegap, omegai, omegas)
+#     calculate_pair_generation_rate_vec = np.vectorize(calculate_pair_generation_rate)
+#     Z = calculate_pair_generation_rate_vec(X, Y, thetap, omegap, omegai, omegas)
+# #    Z = calculate_pair_generation_rate(x=4e-6, y=0, thetap=thetap, omegap=omegap, omegai=omegai, omegas=omegas)
+#     plt.figure(figsize=(8, 6))
+#     plt.imshow(Z, origin='lower', cmap='gray')
+#     plt.xlabel("x")
+#     plt.ylabel("y")
+
+#     plt.title( "BBO crystal entangled photons" ) 
+#     plt.show() 
 
 def main():
     """ main function """
