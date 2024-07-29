@@ -165,18 +165,24 @@ def calculate_pair_generation_rate(x, y, thetap, omegap, omegai, omegas):
         # DEBUG
         rate = pump_function(qix + qsx, qiy + qsy, kpz, omegap)
         return rate
-    dqix = omegai / C # ? Guess? divide by n?
-    dqiy = omegai / C # ? Guess
-    dqsx = omegas / C # ? Guess
-    dqsy = omegas / C # ? Guess
+    dqix = (omegai / C)*0.001 # ? Guess? divide by n?
+    dqiy = (omegai / C)*0.001 # ? Guess
+    dqsx = (omegas / C)*0.001 # ? Guess
+    dqsy = (omegas / C)*0.001 # ? Guess
 
     print(f(dqix, dqix, dqix, dqix))
     
-    x = np.linspace(-dqix*0.001, dqix*0.001, 1000)
     print(np.abs(f(x, 0, 0, 0)))
     plt.plot(x, np.abs(f(x, 0, 0, 0))) # Plot the pump function
-    import pdb; pdb.set_trace()
+    x = np.linspace(-dqix, dqix, 1000)
+    y = np.linspace(-dqix, dqix, 1000)
+    X, Y = np.meshgrid(x, y)
+    Z = np.abs(f(X, Y, 0, 0))
+    plt.imshow(Z, extent=(x.min(), x.max(), y.min(), y.max()), origin='lower', cmap='gray')
 
+
+
+    import pdb; pdb.set_trace()
     result, error_estimate = complex_quadrature(f, [[-dqix, dqix], [-dqiy, dqiy], [-dqsx, dqsx], [-dqsy, dqsy]])
     print(f"Integral result: {result}")
     print(f"Error estimate: {error_estimate}")
