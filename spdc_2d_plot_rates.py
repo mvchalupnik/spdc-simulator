@@ -323,19 +323,19 @@ def calculate_pair_generation_rate(x_pos, y_pos, thetap, omegap, omegai, omegas)
     dqsy = (omegas / C)*0.0014 # ? Guess
 
 
-    x = np.linspace(-dqix, dqix, 1000)
-    y = np.linspace(-dqiy, dqiy, 1000)
-    X, Y = np.meshgrid(x, y)
-    ##Momentum must be conserved, so qix = -qsx and qiy = -qiy?
-    ##(Assume qpx and qpy negligible? Though they appear in the expression for the pump beam)
-    Z = np.abs(rate_integrand(X, Y, X, Y))
-#    Z = np.abs(rate_integrand(X, Y, -X, -Y))
+#     x = np.linspace(-dqix, dqix, 1000)
+#     y = np.linspace(-dqiy, dqiy, 1000)
+#     X, Y = np.meshgrid(x, y)
+#     ##Momentum must be conserved, so qix = -qsx and qiy = -qiy?
+#     ##(Assume qpx and qpy negligible? Though they appear in the expression for the pump beam)
+#     Z = np.abs(rate_integrand(X, Y, X, Y))
+# #    Z = np.abs(rate_integrand(X, Y, -X, -Y))
 
-    # Z = np.abs(rate_integrand(X, Y))
-    plt.imshow(Z, extent=(x.min(), x.max(), y.min(), y.max()), origin='lower', cmap='gray')
-    plt.xlabel("qx")
-    plt.ylabel("qy")
-    import pdb; pdb.set_trace()
+#     # Z = np.abs(rate_integrand(X, Y))
+#     plt.imshow(Z, extent=(x.min(), x.max(), y.min(), y.max()), origin='lower', cmap='gray')
+#     plt.xlabel("qx")
+#     plt.ylabel("qy")
+#     import pdb; pdb.set_trace()
 
 
     #### Hack the integral
