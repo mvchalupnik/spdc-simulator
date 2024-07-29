@@ -151,7 +151,7 @@ def calculate_pair_generation_rate(x, y, thetap, omegap, omegai, omegas):
     ks = omegas / C # ? Guess? divide by n?
     ki = omegai / C # ? Guess? divide by n?
     kpz = (omegas + omegai) / C # This is on page 8 in the bottom paragraph on the left column
-    omegap = omegas + omegai # ??
+    omegap = omegas + omegai # This is on page 8 in the bottom paragraph on the left column
 
     def rate_integrand(qix, qiy, qsx, qsy):
         qs_dot_rhos = (qsx * x + qsy * y)
@@ -159,7 +159,7 @@ def calculate_pair_generation_rate(x, y, thetap, omegap, omegai, omegas):
         qs_abs = np.sqrt(qsx**2 + qsy**2)
         qi_abs = np.sqrt(qix**2 + qiy**2)
 
-        rate = np.exp(1j * (ks + ki) * z) * pump_function(qix + qsx, qiy + qsy, kpz, omegap) * delta_k_type_1(qsx, qix, qsy, qiy, thetap, omegap, omegai, omegas) * \
+        rate = np.exp(1j * (ks + ki) * z) * pump_function(qix + qsx, qiy + qsy, kpz, omegap) * phase_matching(delta_k_type_1(qsx, qix, qsy, qiy, thetap, omegap, omegai, omegas), crystal_length) * \
         np.exp(1j * (qs_dot_rhos + qi_dot_rhoi - qs_abs**2 * z / (2 * ks) - qi_abs**2 * z / (2 * ki)))
 
         # DEBUG
@@ -167,10 +167,10 @@ def calculate_pair_generation_rate(x, y, thetap, omegap, omegai, omegas):
         # rate = delta_k_type_1(qsx, qix, qsy, qiy, thetap, omegap, omegai, omegas)
         # rate = np.exp(1j * (qs_dot_rhos + qi_dot_rhoi - qs_abs**2 * z / (2 * ks) - qi_abs**2 * z / (2 * ki)))
         return rate
-    dqix = (omegai / C)*0.0001 # ?
-    dqiy = (omegai / C)*0.0001 # 
-    dqsx = (omegas / C)*0.0001 # 
-    dqsy = (omegas / C)*0.0001 # ? Guess
+    dqix = (omegai / C)*0.01 # ?
+    dqiy = (omegai / C)*0.01 # 
+    dqsx = (omegas / C)*0.01 # 
+    dqsy = (omegas / C)*0.01 # ? Guess
 
     print(rate_integrand(dqix, dqix, dqix, dqix))    
     print(np.abs(rate_integrand(x, 0, 0, 0)))
@@ -184,7 +184,8 @@ def calculate_pair_generation_rate(x, y, thetap, omegap, omegai, omegas):
     plt.ylabel("qy")
 
     import pdb; pdb.set_trace()
-    result, error_estimate = complex_quadrature(rate_integrand, [[-dqix, dqix], [-dqiy, dqiy], [-dqsx, dqsx], [-dqsy, dqsy]])
+    opts = {"limit": 2}
+    result, error_estimate = complex_quadrature(rate_integrand, [[-dqix, dqix], [-dqiy, dqiy], [-dqsx, dqsx], [-dqsy, dqsy]], opts=opts)
     print(f"Integral result: {result}")
     print(f"Error estimate: {error_estimate}")
     return np.abs(result)**2 
@@ -197,8 +198,33 @@ def plot_rings():
     omegai = (2 * np.pi * C) / down_conversion_wavelength # ?
     omegas = (2 * np.pi * C) / down_conversion_wavelength # ?
 
+    # Plot total output power as a function of theta_p
+    # Sum (technically integrate) over real space
+
+
+
+
+
+
+    # Plot beam in real space
+    span = 100e-6 #??
+    x = np.linspace(-span, span, 4)
+
+    calculate_pair_generation_rate_vec = np.vectorize(calculate_pair_generation_rate)
+    z = calculate_pair_generation_rate_vec(x, 0, thetap, omegap, omegai, omegas)
+    plt.figure(figsize=(8, 6))
+    plt.plot(x, z)
+  
+    plt.title( "BBO crystal entangled photons" ) 
+    plt.show() 
+
+
+
+
+    import pdb; pdb.set_trace()
+
     # Create a grid of x and y values
-    span = 100e-6
+    span = 100e-6 #??
     x = np.linspace(-span, span, 2)
     y = np.linspace(-span, span, 2)
     X, Y = np.meshgrid(x, y)
@@ -207,7 +233,6 @@ def plot_rings():
     calculate_pair_generation_rate_vec = np.vectorize(calculate_pair_generation_rate)
     Z = calculate_pair_generation_rate_vec(X, Y, thetap, omegap, omegai, omegas)
 #    Z = calculate_pair_generation_rate(x=4e-6, y=0, thetap=thetap, omegap=omegap, omegai=omegai, omegas=omegas)
-    import pdb; pdb.set_trace()
     plt.figure(figsize=(8, 6))
     plt.imshow(Z, origin='lower', cmap='gray')
   
