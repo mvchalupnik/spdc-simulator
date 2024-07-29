@@ -230,9 +230,9 @@ def calculate_pair_generation_rate(x_pos, y_pos, thetap, omegap, omegai, omegas)
 #        np.exp(1j * (qs_dot_rhos + qi_dot_rhoi - qs_abs**2 * z_pos / (2 * ks) - qi_abs**2 * z_pos / (2 * ki)))
 
         # DEBUG
-        integrand = pump_function(qix + qsx, qiy + qsy, kpz, omegap)
+ #       integrand = pump_function(qix + qsx, qiy + qsy, kpz, omegap)
 #        integrand = phase_matching(qix, crystal_length)
-        #integrand = phase_matching(delta_k_type_1(qsx, qix, qsy, qiy, thetap, omegap, omegai, omegas), crystal_length) 
+        integrand = phase_matching(delta_k_type_1(qsx, qix, qsy, qiy, thetap, omegap, omegai, omegas), crystal_length) 
         #integrand = delta_k_type_1(qsx, qix, qsy, qiy, thetap, omegap, omegai, omegas)
    #     integrand = np.exp(1j * (qs_dot_rhos + qi_dot_rhoi - qs_abs**2 * z_pos / (2 * ks) - qi_abs**2 * z_pos / (2 * ki)))
 #        integrand = np.exp(1j * (qs_dot_rhos))
