@@ -132,8 +132,6 @@ def pump_function(qpx, qpy, kp, omega):
     d = 107.8e-2 # pg 15
     w0 = 388e-6 # beam waist in meters, page 8
     V = np.exp(-qp_abs**2 * w0**2 / 4) * np.exp(-1j * qp_abs**2 * d / (2 * kp)) # times a phase
-#    V = np.exp(-1j * qp_abs**2 * d / (2 * kp))# DEBUG
-#    import pdb; pdb.set_trace()
 
     return V
 
@@ -176,7 +174,7 @@ def calculate_pair_generation_rate(x, y, thetap, omegap, omegai, omegas):
     
     x = np.linspace(-dqix*0.001, dqix*0.001, 1000)
     print(np.abs(f(x, 0, 0, 0)))
-    plt.plot(x, np.abs(f(x, 0, 0, 0)))
+    plt.plot(x, np.abs(f(x, 0, 0, 0))) # Plot the pump function
     import pdb; pdb.set_trace()
 
     result, error_estimate = complex_quadrature(f, [[-dqix, dqix], [-dqiy, dqiy], [-dqsx, dqsx], [-dqsy, dqsy]])
