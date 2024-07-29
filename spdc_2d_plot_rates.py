@@ -179,16 +179,22 @@ def calculate_pair_generation_rate(x_pos, y_pos, thetap, omegap, omegai, omegas)
     y = np.linspace(-dqix, dqix, 1000)
     X, Y = np.meshgrid(x, y)
     Z = np.abs(rate_integrand(X, Y, 0, 0))
-    plt.imshow(Z, extent=(x.min(), x.max(), y.min(), y.max()), origin='lower', cmap='gray')
-    plt.xlabel("qx")
-    plt.ylabel("qy")
-    import pdb; pdb.set_trace()
+    # plt.imshow(Z, extent=(x.min(), x.max(), y.min(), y.max()), origin='lower', cmap='gray')
+    # plt.xlabel("qx")
+    # plt.ylabel("qy")
+    # import pdb; pdb.set_trace()
 
     # #### Hack the integral
     real_part = np.sum(np.sum(np.real(rate_integrand(X, Y, 0, 0))))
     imag_part = np.sum(np.sum(np.imag(rate_integrand(X, Y, 0, 0))))
-    result = real_part + 1j * imag_part
+    result1 = real_part + 1j * imag_part
+
+    real_part = np.sum(np.sum(np.real(rate_integrand(0, 0, X, Y))))
+    imag_part = np.sum(np.sum(np.imag(rate_integrand(0, 0, X, Y))))
+    result2 = real_part + 1j * imag_part
+    result = result1 + result2
     error_estimate = 0
+
 
     # #### Hack the integral
     # real_part = np.sum(np.sum(np.real(rate_integrand(0, 0, 0, 0))))
@@ -224,8 +230,8 @@ def plot_rings():
 
     # Plot beam in real space
 #    span = 100e-6 #??
-    span = 10e-3 #??
-    x = np.linspace(-span, span, 10)
+    span = 1e-3 #??
+    x = np.linspace(-span, span, 50)
 
     calculate_pair_generation_rate_vec = np.vectorize(calculate_pair_generation_rate)
     z = calculate_pair_generation_rate_vec(x, 0, thetap, omegap, omegai, omegas)
