@@ -317,10 +317,10 @@ def calculate_pair_generation_rate(x_pos, y_pos, thetap, omegap, omegai, omegas)
 
    #     import pdb; pdb.set_trace()
         return integrand
-    dqix = (omegai / C)*0.014 # ?enclose circle in momentum space
-    dqiy = (omegai / C)*0.014 # 
-    dqsx = (omegas / C)*0.014 # 
-    dqsy = (omegas / C)*0.014 # ? Guess
+    dqix = (omegai / C)*0.0014 # ?enclose circle in momentum space
+    dqiy = (omegai / C)*0.0014 # 
+    dqsx = (omegas / C)*0.0014 # 
+    dqsy = (omegas / C)*0.0014 # ? Guess
 
 
     x = np.linspace(-dqix, dqix, 1000)
@@ -328,8 +328,8 @@ def calculate_pair_generation_rate(x_pos, y_pos, thetap, omegap, omegai, omegas)
     X, Y = np.meshgrid(x, y)
     ##Momentum must be conserved, so qix = -qsx and qiy = -qiy?
     ##(Assume qpx and qpy negligible? Though they appear in the expression for the pump beam)
-#    Z = np.abs(rate_integrand(X, Y, X, Y))
-    Z = np.abs(rate_integrand(X, Y, -X, -Y))
+    Z = np.abs(rate_integrand(X, Y, X, Y))
+#    Z = np.abs(rate_integrand(X, Y, -X, -Y))
 
     # Z = np.abs(rate_integrand(X, Y))
     plt.imshow(Z, extent=(x.min(), x.max(), y.min(), y.max()), origin='lower', cmap='gray')
