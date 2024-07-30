@@ -13,7 +13,7 @@ crystal_length = 0.002    # Length of the nonlinear crystal in meters
 C = 2.99792e8 # Speed of light, in meters per second
 np.random.seed(0)
 
-def monte_carlo_integration_momentum(f, dq, num_samples=200000):
+def monte_carlo_integration_momentum(f, dq, num_samples=20000):
     ## Generate random samples within the bounds [-dq, dq] for each variable
     qix_samples = np.random.uniform(-dq, dq, num_samples)
     qiy_samples = np.random.uniform(-dq, dq, num_samples)
@@ -28,7 +28,9 @@ def monte_carlo_integration_momentum(f, dq, num_samples=200000):
     func_values_sq = np.abs(func_values)**2 
 
     # Calculate the average value of the function
-    avg_value = np.mean(func_values)
+    avg_value = np.mean(func_values_sq)
+#    avg_value = np.mean(func_values)
+#    import pdb; pdb.set_trace()
     
     # The volume of the integration region
     volume = (2 * dq)**4
@@ -39,7 +41,7 @@ def monte_carlo_integration_momentum(f, dq, num_samples=200000):
     return integral_estimate
 
 
-def monte_carlo_integration_position(f, dq, dr, num_samples=10):
+def monte_carlo_integration_position(f, dq, dr, num_samples=1):
   #  np.random.seed(0) #Use the same positions each time this is called
     # Generate random samples within the bounds [-dr, dr] for each variable
     x_samples = np.random.uniform(-dr, dr, num_samples)
@@ -49,8 +51,8 @@ def monte_carlo_integration_position(f, dq, dr, num_samples=10):
     #func_values = f(qix_samples, qiy_samples, qsx_samples, qsy_samples, x_samples, y_samples)
     func_values = np.zeros(num_samples, dtype='complex128') # Technically won't be complex here
     for n in range(num_samples): # can simplify?
-        x_sample = x_samples[n]
-        y_sample = y_samples[n]
+        x_sample = 0#x_samples[n]
+        y_sample = 0#y_samples[n]
         g = functools.partial(f, x_pos_integrate=x_sample, y_pos_integrate=y_sample)
         func_values[n] = monte_carlo_integration_momentum(g, dq)
 
@@ -240,10 +242,10 @@ def calculate_pair_generation_rate(x_pos, y_pos, thetap, omegap, omegai, omegas,
 
    #     import pdb; pdb.set_trace()
         return integrand
-    dqix = (omegai / C)*0.0034 # ?enclose circle in momentum space
-    dqiy = (omegai / C)*0.0034 # 0.0014
-    dqsx = (omegas / C)*0.0034 # 
-    dqsy = (omegas / C)*0.0034 # ? Guess
+    dqix = (omegai / C)*0.0014 # ?enclose circle in momentum space
+    dqiy = (omegai / C)*0.0014 # 0.0014
+    dqsx = (omegas / C)*0.0014 # 
+    dqsy = (omegas / C)*0.0014 # ? Guess
 
 
 #     x = np.linspace(-dqix, dqix, 1000)
@@ -278,56 +280,31 @@ def plot_rings():
     start_time = time.time()
 
     pump_wavelength = 405e-9 # Pump wavelength in meters
-    nominal_pump_frequency = (2 * np.pi * C) / pump_wavelength
-    down_conversion_frequency = nominal_pump_frequency / 2 # 0.9995
-#    signal_frequency = np.linspace(down_conversion_frequency*1.0005, down_conversion_frequency*0.995, 2) # Downcoverted photon wavelength in meters
-#    idler_frequency = np.linspace(down_conversion_frequency*0.995, down_conversion_frequency*1.0005, 2) # Downcoverted photon wavelength in meters
-    #idler_frequency = pump_frequency - signal_frequency # Downcoverted photon wavelength in meters
-    signal_frequency = np.random.uniform(down_conversion_frequency*1.000, down_conversion_frequency*1.000, 1)
-    idler_frequency = np.random.uniform(down_conversion_frequency*1.000, down_conversion_frequency*1.000, 1)
-    #idler_frequency = nominal_pump_frequency - signal_frequency # Downcoverted photon wavelength in meters
+    down_conversion_wavelength = 810e-9
 
-#    signal_frequency = np.random.normal(down_conversion_frequency, down_conversion_frequency*0.0009, 1)
-#    idler_frequency = np.random.normal(down_conversion_frequency, down_conversion_frequency*0.0009, 1)
-
-    
     # Set parameters
     thetap = 28.95 * np.pi / 180
 
-    # omegap = (2 * np.pi * C) / pump_wavelength # ?
-    # omegai = (2 * np.pi * C) / down_conversion_wavelength # ?
-    # omegas = (2 * np.pi * C) / down_conversion_wavelength # ?
+    omegap = (2 * np.pi * C) / pump_wavelength # ?
+    omegai = (2 * np.pi * C) / down_conversion_wavelength # ?
+    omegas = (2 * np.pi * C) / down_conversion_wavelength # ?
 
     # Plot total output power as a function of theta_p
-
+    # TODO
 
     # Plot beam in real space
     span = 100e-6 #??
     span = 3e-3#3e-4 #??
     span = 1e-3
-    num_points = 500
+    num_points = 100
     x = np.linspace(-span, span, num_points)
 
-    E_signal_total = np.zeros(num_points, dtype='complex128')
-    E_idler_total = np.zeros(num_points, dtype='complex128')
-    for s, i in zip(signal_frequency, idler_frequency):
-        print((C * np.pi * 2) /s)
-        print((C * np.pi * 2) /i)
+    calculate_pair_generation_rate_vec = np.vectorize(calculate_pair_generation_rate)
+    R_signal, R_idler = calculate_pair_generation_rate_vec(x, 0, thetap, omegas + omegai, omegai, omegas, span)
+    print(f"R_signal: {R_signal}")
 
-        calculate_pair_generation_rate_vec = np.vectorize(calculate_pair_generation_rate)
-        E_signal, E_idler = calculate_pair_generation_rate_vec(x, 0, thetap, s + i, i, s, span)
-        # E_signal_total += np.abs(E_signal)**2
-        # E_idler_total += np.abs(E_idler)**2
-        E_signal_total += E_signal
-        E_idler_total += E_idler
-
-        # plt.figure(figsize=(8, 6))
-        # plt.plot(x, np.abs(E_signal)**2)
-        # plt.plot(x, np.abs(E_idler)**2)
-        # import pdb; pdb.set_trace()
-
-    z1 = E_signal_total
-    z2 = E_idler_total
+    z1 = R_signal
+    z2 = R_idler
 
     plt.figure(figsize=(8, 6))
     plt.plot(x, z1)
@@ -345,14 +322,14 @@ def plot_rings():
 
     ##Create a grid of x and y values
    ##span = 100e-6 #??
-    span = 1e-3
+    span = .1e-3
     x = np.linspace(-span, span, 50)
     y = np.linspace(-span, span, 50)
     X, Y = np.meshgrid(x, y)
 
     calculate_pair_generation_rate_vec = np.vectorize(calculate_pair_generation_rate)
     Z1, Z2 = calculate_pair_generation_rate_vec(X, Y, thetap, omegap, omegai, omegas, span)
-    Z = np.abs(Z1 + Z2)**2
+
 #    Z_idler = calculate_pair_generation_rate_vec(X, Y, thetap, omegap, omegai, omegas)
 
     # parallel_calculate = functools.partial(calculate_pair_generation_rate_vec, thetap=thetap, omegap=omegap, omegai=omegai, omegas=omegas, dr=span)
@@ -365,7 +342,7 @@ def plot_rings():
     print(f"Elapsed time: {end_time - start_time}")
 
     plt.figure(figsize=(8, 6))
-    plt.imshow(Z, extent=(x.min(), x.max(), y.min(), y.max()), origin='lower', cmap='gray')
+    plt.imshow(np.abs(Z1), extent=(x.min(), x.max(), y.min(), y.max()), origin='lower', cmap='gray')
     plt.xlabel("x")
     plt.ylabel("y")
 
