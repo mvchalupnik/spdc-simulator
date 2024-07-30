@@ -95,43 +95,26 @@ C = 2.99792e8 # Speed of light, in meters per second
 
 #     return integral_estimate
 
-def monte_carlo_integration(f, s, num_samples=10000):
+def monte_carlo_integration(f, dq, dr, num_samples=100000):
 
     ## Generate random samples within the bounds [-s, s] for each variable
-    x1_samples = np.random.uniform(-s, s, num_samples)
-    y1_samples = np.random.uniform(-s, s, num_samples)
-    x2_samples = np.random.uniform(-s, s, num_samples)
-    y2_samples = np.random.uniform(-s, s, num_samples)
+    qix_samples = np.random.uniform(-dq, dq, num_samples)
+    qiy_samples = np.random.uniform(-dq, dq, num_samples)
+    qsx_samples = np.random.uniform(-dq, dq, num_samples)
+    qsy_samples = np.random.uniform(-dq, dq, num_samples)
+    x_samples = np.random.uniform(-dr, dr, num_samples)
+    y_samples = np.random.uniform(-dr, dr, num_samples)
 
-    # x1_samples = np.random.uniform(0, s, num_samples)
-    # y1_samples = np.random.uniform(0, s, num_samples)
-    # x2_samples = np.random.uniform(-s, 0, num_samples)
-    # y2_samples = np.random.uniform(-s, 0, num_samples)
-
-    # x1_samples = np.random.normal(0, s, num_samples)
-    # y1_samples = np.random.normal(0, s, num_samples)
-    # x2_samples = np.random.normal(0, s, num_samples)
-    # y2_samples = np.random.normal(0, s, num_samples)
-
-
-    # x1_samples = np.random.normal(-s/2, s, num_samples)
-    # y1_samples = np.random.normal(-s/2, s, num_samples)
-    # x2_samples = np.random.normal(s/2, s, num_samples)
-    # y2_samples = np.random.normal(s/2, s, num_samples)
-
-    # x1_samples = np.random.uniform(-s, s, num_samples)
-    # y1_samples = np.random.uniform(-s, s, num_samples)
-    # x2_samples = -x1_samples + np.random.uniform(-s* 0.01, s* 0.01, num_samples)
-    # y2_samples = -y1_samples + np.random.uniform(-s* 0.01, s* 0.01, num_samples)
+#    import pdb; pdb.set_trace()
     
     # Evaluate the function at each sample point
-    func_values = f(x1_samples, y1_samples, x2_samples, y2_samples)
+    func_values = f(qix_samples, qiy_samples, qsx_samples, qsy_samples, x_samples, y_samples)
     
     # Calculate the average value of the function
     avg_value = np.mean(func_values)
     
     # The volume of the integration region
-    volume = (2 * s)**4
+    volume = (2 * dq)**4 * (2 * dr)**2
     
     # Estimate the integral as the average value times the volume
     integral_estimate = avg_value * volume
@@ -274,30 +257,33 @@ def pump_function(qpx, qpy, kp, omega):
 
     return V
 
-def calculate_pair_generation_rate(x_pos, y_pos, thetap, omegap, omegai, omegas):
+def calculate_pair_generation_rate(x_pos, y_pos, thetap, omegap, omegai, omegas, dr):
     """
     Return the entangled pair generation rate at location (x, y, z) from the crystal. Equation 84.
 
-    :param x: Location in the x direction a distance z away from the crystal
-    :param y: Location in the y direction a distance z away from the crystal
+    :param x_pos: Location of signal (idler) photon in the x direction a distance z away from the crystal
+    :param y_pos: Location of signal (idler) photon in the y direction a distance z away from the crystal
+    :param dr: One half the area of real space to integrate the signal and idler over (integrate over the origin) (Maybe don't have to pass?)
     """
+    # Note: The integral could also be handled by doing an FFT
+
     # Multiply by detector efficiencies, and a constant dependent on epsilon_0 and chi_2
 
     # z is distance away from crystal along pump propagation direction
-    z_pos = 35e-3 # 35 millimeters
+    z_pos = 35e-3 # 35 millimeters, page 15
     ks = omegas / C # ? Guess? divide by n?
     ki = omegai / C # ? Guess? divide by n?
     kpz = (omegas + omegai) / C # This is on page 8 in the bottom paragraph on the left column
     omegap = omegas + omegai # This is on page 8 in the bottom paragraph on the left column
 
-    def rate_integrand(qix, qiy, qsx, qsy): # if qix always = -qsx, rewrite as a func of two variable instead of four
+    def rate_integrand(qix, qiy, qsx, qsy, xs_pos, ys_pos, xi_pos, yi_pos): # if qix always = -qsx, rewrite as a func of two variable instead of four
     # def rate_integrand(qix, qiy): # if qix always = -qsx, rewrite as a func of two variable instead of four
     #     qsx = -qix #??? here qpx is always 0
     #     qsy = -qiy #??? here qpy is always 0
 
 #        import pdb; pdb.set_trace()
-        qs_dot_rhos = (qsx * x_pos + qsy * y_pos)
-        qi_dot_rhoi = (qix * x_pos + qiy * y_pos)
+        qs_dot_rhos = (qsx * xs_pos + qsy * ys_pos)
+        qi_dot_rhoi = (qix * xi_pos + qiy * yi_pos)
         qs_abs = np.sqrt(qsx**2 + qsy**2)
         qi_abs = np.sqrt(qix**2 + qiy**2)
 
@@ -328,8 +314,12 @@ def calculate_pair_generation_rate(x_pos, y_pos, thetap, omegap, omegai, omegas)
 #     X, Y = np.meshgrid(x, y)
 #     ##Momentum must be conserved, so qix = -qsx and qiy = -qiy?
 #     ##(Assume qpx and qpy negligible? Though they appear in the expression for the pump beam)
-#     Z = np.abs(rate_integrand(X, Y, X, Y))
-# #    Z = np.abs(rate_integrand(X, Y, -X, -Y))
+# #    Z = np.abs(rate_integrand(X, Y, X, Y))
+#     # print("test1")
+#     # print(np.abs(rate_integrand(X, Y, -X, -Y)))
+#     # print("test2")
+#     # print(np.abs(rate_integrand(X, Y, X, Y)))
+#     Z = np.abs(rate_integrand(X, Y, -X, -Y))
 
 #     # Z = np.abs(rate_integrand(X, Y))
 #     plt.imshow(Z, extent=(x.min(), x.max(), y.min(), y.max()), origin='lower', cmap='gray')
@@ -345,13 +335,13 @@ def calculate_pair_generation_rate(x_pos, y_pos, thetap, omegap, omegai, omegas)
     # result = real_part + 1j * imag_part
 
 #    result = np.sum(np.sum(np.sum(np.sum(rate_integrand(X, Y)))))
+    rate_integrand_signal = functools.partial(rate_integrand, xs_pos=x_pos, ys_pos=y_pos)
+    rate_integrand_idler = functools.partial(rate_integrand, xi_pos=x_pos, yi_pos=y_pos)
 
-    result = monte_carlo_integration(rate_integrand, dqix)
-    #0.04 gives bad result even for just the spatially varying part of the integrandwith .3e-3 span (0.004 is good with 10,000 points)
-
-    error_estimate = 0
-
-
+#    result_signal = monte_carlo_integration(rate_integrand_signal, dqix, dr)
+    result_idler = monte_carlo_integration(rate_integrand_idler, dqix, dr)
+#    result = np.abs(result_signal)**2 + np.abs(result_idler)**2 
+    result = np.abs(result_idler)**2 
     # #### Hack the integral
     # real_part = np.sum(np.sum(np.real(rate_integrand(X, Y, 0, 0))))
     # imag_part = np.sum(np.sum(np.imag(rate_integrand(X, Y, 0, 0))))
@@ -375,7 +365,7 @@ def calculate_pair_generation_rate(x_pos, y_pos, thetap, omegap, omegai, omegas)
  #   print(f"Integral result: {result}")
  #   print(f"Error estimate: {error_estimate}")
     ####
-    return np.abs(result)**2 
+    return result
 
 def plot_rings():
     """ Plot entangled pair rings. """
@@ -383,7 +373,7 @@ def plot_rings():
 
     # Set parameters
     thetap = 28.95 * np.pi / 180
-   # thetap = 28.64 * np.pi / 180
+    thetap = 28.84 * np.pi / 180
  #   thetap = 30 * np.pi / 180
 
     omegap = (2 * np.pi * C) / pump_wavelength # ?
@@ -423,7 +413,8 @@ def plot_rings():
     X, Y = np.meshgrid(x, y)
 
     calculate_pair_generation_rate_vec = np.vectorize(calculate_pair_generation_rate)
-    Z = calculate_pair_generation_rate_vec(X, Y, thetap, omegap, omegai, omegas)
+    Z = calculate_pair_generation_rate_vec(X, Y, thetap, omegap, omegai, omegas, span)
+#    Z_idler = calculate_pair_generation_rate_vec(X, Y, thetap, omegap, omegai, omegas)
 
     # parallel_calculate = functools.partial(calculate_pair_generation_rate_vec, thetap=thetap, omegap=omegap, omegai=omegai, omegas=omegas)
     # Z = Parallel(n_jobs=4)(delayed(parallel_calculate)(xi, yi) for xi in x for yi in y)
