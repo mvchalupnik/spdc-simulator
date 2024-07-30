@@ -6,65 +6,12 @@ import scipy
 from joblib import Parallel, delayed
 from scipy.stats import qmc
 import functools
+from scipy.stats import norm
 
 # Constants
-pump_wavelength = 405.0e-9  # Pump wavelength in meters
-down_conversion_wavelength = 810e-9 # Downcoverted photon wavelength in meters
 crystal_length = 0.002    # Length of the nonlinear crystal in meters
 C = 2.99792e8 # Speed of light, in meters per second
-
-
-# def monte_carlo_integration_complex(f, s, num_samples=1000000):
-#     # Generate random samples within the bounds [-s, s] for each variable's real and imaginary parts
-#     import pdb; pdb.set_trace()
-
-#     real_part_samples = np.random.uniform(-s, s, (num_samples, 4))
-#     imag_part_samples = np.random.uniform(-s, s, (num_samples, 4))
-    
-#     z1_samples = real_part_samples[:, 0] + 1j * imag_part_samples[:, 0]
-#     z2_samples = real_part_samples[:, 1] + 1j * imag_part_samples[:, 1]
-#     z3_samples = real_part_samples[:, 2] + 1j * imag_part_samples[:, 2]
-#     z4_samples = real_part_samples[:, 3] + 1j * imag_part_samples[:, 3]
-    
-#     # Evaluate the function at each sample point
-#     func_values = f(z1_samples, z2_samples, z3_samples, z4_samples)
-    
-#     # Separate the real and imaginary parts
-#     real_values = np.real(func_values)
-#     imag_values = np.imag(func_values)
-    
-#     # Calculate the average value of the real and imaginary parts
-#     avg_real_value = np.mean(real_values)
-#     avg_imag_value = np.mean(imag_values)
-    
-#     # The volume of the integration region in complex space
-#     volume = (2 * s)**8
-    
-#     # Estimate the integral as the average value times the volume
-#     integral_estimate_real = avg_real_value * volume
-#     integral_estimate_imag = avg_imag_value * volume
-    
-#     return integral_estimate_real + 1j * integral_estimate_imag
-
-# def monte_carlo_integration(f, s, num_samples=100000):
-#     # Generate quasi-random samples using the Sobol sequence
-#     sampler = qmc.Sobol(d=4, scramble=True)
-#     samples = sampler.random(n=num_samples) * 2 * s - s
-#     x1_samples, y1_samples, x2_samples, y2_samples = samples.T
-
-#     # Evaluate the function at the sample points
-#     func_values = f(x1_samples, y1_samples, x2_samples, y2_samples)
-
-#     # Calculate the average value of the function
-#     avg_value = np.mean(func_values)
-
-#     # The volume of the integration region
-#     volume = (2 * s)**4
-
-#     # Estimate the integral as the average value times the volume
-#     integral_estimate = avg_value * volume
-
-#     return integral_estimate
+np.random.seed(0)
 
 # def monte_carlo_integration(f, s, num_samples=100000):
 
@@ -95,31 +42,137 @@ C = 2.99792e8 # Speed of light, in meters per second
 
 #     return integral_estimate
 
-def monte_carlo_integration(f, dq, dr, num_samples=100000):
-
-    ## Generate random samples within the bounds [-s, s] for each variable
+def monte_carlo_integration_momentum(f, dq, num_samples=300000):
+    ## Generate random samples within the bounds [-dq, dq] for each variable
     qix_samples = np.random.uniform(-dq, dq, num_samples)
     qiy_samples = np.random.uniform(-dq, dq, num_samples)
     qsx_samples = np.random.uniform(-dq, dq, num_samples)
     qsy_samples = np.random.uniform(-dq, dq, num_samples)
-    x_samples = np.random.uniform(-dr, dr, num_samples)
-    y_samples = np.random.uniform(-dr, dr, num_samples)
 
-#    import pdb; pdb.set_trace()
-    
+
     # Evaluate the function at each sample point
-    func_values = f(qix_samples, qiy_samples, qsx_samples, qsy_samples, x_samples, y_samples)
-    
+    func_values = f(qix_samples, qiy_samples, qsx_samples, qsy_samples)
+
+    # Square the absolute value of the result
+    func_values_sq = np.abs(func_values)**2 
+
     # Calculate the average value of the function
     avg_value = np.mean(func_values)
     
     # The volume of the integration region
-    volume = (2 * dq)**4 * (2 * dr)**2
+    volume = (2 * dq)**4
     
     # Estimate the integral as the average value times the volume
     integral_estimate = avg_value * volume
     
     return integral_estimate
+
+
+# def monte_carlo_integration_position(f, dq, dr, num_samples=1):
+#   #  np.random.seed(0) #Use the same positions each time this is called
+#     # Generate random samples within the bounds [-dr, dr] for each variable
+#     x_samples = np.random.uniform(-dr, dr, num_samples)
+#     y_samples = np.random.uniform(-dr, dr, num_samples)
+#     print(x_samples)
+#     print(y_samples)
+
+#     # Evaluate the function at each sample point
+#     #func_values = f(qix_samples, qiy_samples, qsx_samples, qsy_samples, x_samples, y_samples)
+#     func_values = np.zeros(num_samples, dtype='complex128') # Technically won't be complex here
+#     for n in range(num_samples): # can simplify?
+#         x_sample = -0.00075
+#         y_sample = 0
+# #        x_sample = x_samples[n]
+# #        y_sample = y_samples[n]
+#         g = functools.partial(f, x_pos_integrate=x_sample, y_pos_integrate=y_sample)
+#         func_values[n] = monte_carlo_integration_momentum(g, dq)
+
+#     # Calculate the average value of the function
+#     avg_value = np.mean(func_values)
+    
+#     # The volume of the integration region
+#     volume = (2 * dr)**2
+    
+#     # Estimate the integral as the average value times the volume
+#     integral_estimate = avg_value * volume
+    
+#     return integral_estimate
+
+
+# def monte_carlo_integration_momentum(f, dq, num_samples=200000):
+#     ## Generate random samples within the bounds [-dq, dq] for each variable
+#     # qix_samples = np.random.uniform(-dq, dq, num_samples)
+#     # qiy_samples = np.random.uniform(-dq, dq, num_samples)
+#     # qsx_samples = np.random.uniform(-dq, dq, num_samples)
+#     # qsy_samples = np.random.uniform(-dq, dq, num_samples)
+
+#     # Sample more heavily from point opposite expected point
+#     # qix_samples = np.random.normal(loc=-0.00075, scale=dq/5, size=num_samples) * np.random.choice([-1, 1], size=num_samples)
+#     # qiy_samples = np.random.normal(loc=0, scale=dq/5, size=num_samples) * np.random.choice([-1, 1], size=num_samples)
+#     # qsx_samples = np.random.normal(loc=-0.00075, scale=dq/5, size=num_samples) * np.random.choice([-1, 1], size=num_samples)
+#     # qsy_samples = np.random.normal(loc=0, scale=dq/5, size=num_samples) * np.random.choice([-1, 1], size=num_samples)
+
+#     qix_dist = norm(loc=-0.00075, scale=dq/5)
+#     qiy_dist = norm(loc=0, scale=dq/5)
+#     qsx_dist = norm(loc=-0.00075, scale=dq/5)
+#     qsy_dist = norm(loc=0, scale=dq/5)
+
+#     qix_samples = qix_dist.rvs(num_samples) * np.random.choice([-1, 1], size=num_samples)
+#     qiy_samples = qiy_dist.rvs(num_samples) * np.random.choice([-1, 1], size=num_samples)
+#     qsx_samples = qsx_dist.rvs(num_samples) * np.random.choice([-1, 1], size=num_samples)
+#     qsy_samples = qsy_dist.rvs(num_samples) * np.random.choice([-1, 1], size=num_samples)
+
+#     # Evaluate the function at each sample point
+#     func_values = f(qix_samples, qiy_samples, qsx_samples, qsy_samples) / (2**4 * qix_dist.pdf(qix_samples) * qiy_dist.pdf(qiy_samples) * qsx_dist.pdf(qsx_samples) * qsy_dist.pdf(qsy_samples))
+
+#     # Square the absolute value of the result
+#     func_values_sq = np.abs(func_values)**2 
+
+#     # Calculate the average value of the function
+#     avg_value = np.mean(func_values)
+    
+#     # The volume of the integration region
+#     volume = (2 * dq)**4
+    
+#     # Estimate the integral as the average value times the volume
+#     integral_estimate = avg_value * volume
+    
+#     return integral_estimate
+
+
+def monte_carlo_integration_position(f, dq, dr, num_samples=1):
+  #  np.random.seed(0) #Use the same positions each time this is called
+    # Generate random samples within the bounds [-dr, dr] for each variable
+    x_samples = np.random.uniform(-dr, dr, num_samples)
+    y_samples = np.random.uniform(-dr, dr, num_samples)
+    print(x_samples)
+    print(y_samples)
+
+    # Evaluate the function at each sample point
+    #func_values = f(qix_samples, qiy_samples, qsx_samples, qsy_samples, x_samples, y_samples)
+    func_values = np.zeros(num_samples, dtype='complex128') # Technically won't be complex here
+    for n in range(num_samples): # can simplify?
+        x_sample = 0.00075
+        y_sample = 0
+#        x_sample = x_samples[n]
+#        y_sample = y_samples[n]
+        g = functools.partial(f, x_pos_integrate=x_sample, y_pos_integrate=y_sample)
+        func_values[n] = monte_carlo_integration_momentum(g, dq)
+
+    # Calculate the average value of the function
+    avg_value = np.mean(func_values)
+    
+    # The volume of the integration region
+    volume = (2 * dr)**2
+    
+    # Estimate the integral as the average value times the volume
+    integral_estimate = avg_value * volume
+    
+    return integral_estimate
+
+
+
+
 
 def complex_quadrature(func, lims, **kwargs):
     def real_func(x1, x2, x3, x4):
@@ -254,7 +307,6 @@ def pump_function(qpx, qpy, kp, omega):
     d = 107.8e-2 # pg 15
     w0 = 388e-6 # beam waist in meters, page 8
     V = np.exp(-qp_abs**2 * w0**2 / 4) * np.exp(-1j * qp_abs**2 * d / (2 * kp)) # times a phase
-
     return V
 
 def calculate_pair_generation_rate(x_pos, y_pos, thetap, omegap, omegai, omegas, dr):
@@ -274,14 +326,26 @@ def calculate_pair_generation_rate(x_pos, y_pos, thetap, omegap, omegai, omegas,
     ks = omegas / C # ? Guess? divide by n?
     ki = omegai / C # ? Guess? divide by n?
     kpz = (omegas + omegai) / C # This is on page 8 in the bottom paragraph on the left column
-    omegap = omegas + omegai # This is on page 8 in the bottom paragraph on the left column
+    omegap = omegas + omegai # This is on page 8 in the bottom paragraph on the left column [NOTE this is also passed in]
 
-    def rate_integrand(qix, qiy, qsx, qsy, xs_pos, ys_pos, xi_pos, yi_pos): # if qix always = -qsx, rewrite as a func of two variable instead of four
-    # def rate_integrand(qix, qiy): # if qix always = -qsx, rewrite as a func of two variable instead of four
-    #     qsx = -qix #??? here qpx is always 0
-    #     qsy = -qiy #??? here qpy is always 0
 
-#        import pdb; pdb.set_trace()
+    def rate_integrand(qix, qiy, qsx, qsy, x_pos_integrate, y_pos_integrate, integrate_over):
+        if integrate_over == "signal":
+            # Fix idler, integrate over signal
+            xs_pos = x_pos_integrate
+            ys_pos = y_pos_integrate
+            xi_pos = x_pos
+            yi_pos = y_pos
+        elif integrate_over == "idler":
+            # Fix signal, integrate over idler
+            xs_pos = x_pos
+            ys_pos = y_pos
+            xi_pos = x_pos_integrate
+            yi_pos = y_pos_integrate
+        else:
+            # Raise error
+            print("error")
+
         qs_dot_rhos = (qsx * xs_pos + qsy * ys_pos)
         qi_dot_rhoi = (qix * xi_pos + qiy * yi_pos)
         qs_abs = np.sqrt(qsx**2 + qsy**2)
@@ -303,10 +367,10 @@ def calculate_pair_generation_rate(x_pos, y_pos, thetap, omegap, omegai, omegas,
 
    #     import pdb; pdb.set_trace()
         return integrand
-    dqix = (omegai / C)*0.0014 # ?enclose circle in momentum space
-    dqiy = (omegai / C)*0.0014 # 
-    dqsx = (omegas / C)*0.0014 # 
-    dqsy = (omegas / C)*0.0014 # ? Guess
+    dqix = (omegai / C)*0.0034 # ?enclose circle in momentum space
+    dqiy = (omegai / C)*0.0034 # 0.0014
+    dqsx = (omegas / C)*0.0034 # Circle not enclosed
+    dqsy = (omegas / C)*0.0034 # ? Guess
 
 
 #     x = np.linspace(-dqix, dqix, 1000)
@@ -319,7 +383,7 @@ def calculate_pair_generation_rate(x_pos, y_pos, thetap, omegap, omegai, omegas,
 #     # print(np.abs(rate_integrand(X, Y, -X, -Y)))
 #     # print("test2")
 #     # print(np.abs(rate_integrand(X, Y, X, Y)))
-#     Z = np.abs(rate_integrand(X, Y, -X, -Y))
+#     Z = np.abs(rate_integrand(X, Y, -X, -Y, 0, 0, "signal"))
 
 #     # Z = np.abs(rate_integrand(X, Y))
 #     plt.imshow(Z, extent=(x.min(), x.max(), y.min(), y.max()), origin='lower', cmap='gray')
@@ -335,13 +399,15 @@ def calculate_pair_generation_rate(x_pos, y_pos, thetap, omegap, omegai, omegas,
     # result = real_part + 1j * imag_part
 
 #    result = np.sum(np.sum(np.sum(np.sum(rate_integrand(X, Y)))))
-    rate_integrand_signal = functools.partial(rate_integrand, xs_pos=x_pos, ys_pos=y_pos)
-    rate_integrand_idler = functools.partial(rate_integrand, xi_pos=x_pos, yi_pos=y_pos)
+    rate_integrand_signal = functools.partial(rate_integrand, integrate_over="idler")
+    rate_integrand_idler = functools.partial(rate_integrand, integrate_over="signal")
 
-#    result_signal = monte_carlo_integration(rate_integrand_signal, dqix, dr)
-    result_idler = monte_carlo_integration(rate_integrand_idler, dqix, dr)
-#    result = np.abs(result_signal)**2 + np.abs(result_idler)**2 
-    result = np.abs(result_idler)**2 
+    result_signal = monte_carlo_integration_position(rate_integrand_signal, dqix, dr)
+    result_idler = result_signal # FOR debug
+#    result_idler = monte_carlo_integration(rate_integrand_idler, dqix, dr)
+#    print(f"result_signal: {result_signal}")
+#    print(f"result_idler: {result_idler}")
+#    result = np.abs(result_idler)**2 
     # #### Hack the integral
     # real_part = np.sum(np.sum(np.real(rate_integrand(X, Y, 0, 0))))
     # imag_part = np.sum(np.sum(np.imag(rate_integrand(X, Y, 0, 0))))
@@ -365,45 +431,77 @@ def calculate_pair_generation_rate(x_pos, y_pos, thetap, omegap, omegai, omegas,
  #   print(f"Integral result: {result}")
  #   print(f"Error estimate: {error_estimate}")
     ####
-    return result
+    return result_signal, result_idler
 
 def plot_rings():
     """ Plot entangled pair rings. """
     start_time = time.time()
 
+    pump_wavelength = 405e-9 # Pump wavelength in meters
+    nominal_pump_frequency = (2 * np.pi * C) / pump_wavelength
+    down_conversion_frequency = nominal_pump_frequency / 2 # 0.9995
+#    signal_frequency = np.linspace(down_conversion_frequency*1.0005, down_conversion_frequency*0.995, 2) # Downcoverted photon wavelength in meters
+#    idler_frequency = np.linspace(down_conversion_frequency*0.995, down_conversion_frequency*1.0005, 2) # Downcoverted photon wavelength in meters
+    #idler_frequency = pump_frequency - signal_frequency # Downcoverted photon wavelength in meters
+    signal_frequency = np.random.uniform(down_conversion_frequency*1.000, down_conversion_frequency*1.000, 1)
+    idler_frequency = np.random.uniform(down_conversion_frequency*1.000, down_conversion_frequency*1.000, 1)
+    #idler_frequency = nominal_pump_frequency - signal_frequency # Downcoverted photon wavelength in meters
+
+#    signal_frequency = np.random.normal(down_conversion_frequency, down_conversion_frequency*0.0009, 1)
+#    idler_frequency = np.random.normal(down_conversion_frequency, down_conversion_frequency*0.0009, 1)
+
+    
     # Set parameters
     thetap = 28.95 * np.pi / 180
-    thetap = 28.84 * np.pi / 180
- #   thetap = 30 * np.pi / 180
 
-    omegap = (2 * np.pi * C) / pump_wavelength # ?
-    omegai = (2 * np.pi * C) / down_conversion_wavelength # ?
-    omegas = (2 * np.pi * C) / down_conversion_wavelength # ?
+    # omegap = (2 * np.pi * C) / pump_wavelength # ?
+    # omegai = (2 * np.pi * C) / down_conversion_wavelength # ?
+    # omegas = (2 * np.pi * C) / down_conversion_wavelength # ?
 
     # Plot total output power as a function of theta_p
-    # Sum (technically integrate) over real space
 
 
+    # Plot beam in real space
+    span = 100e-6 #??
+    span = 3e-3#3e-4 #??
+    span = 1e-3
+    num_points = 500
+    x = np.linspace(-span, span, num_points)
 
+    E_signal_total = np.zeros(num_points, dtype='complex128')
+    E_idler_total = np.zeros(num_points, dtype='complex128')
+    for s, i in zip(signal_frequency, idler_frequency):
+        print((C * np.pi * 2) /s)
+        print((C * np.pi * 2) /i)
 
+        calculate_pair_generation_rate_vec = np.vectorize(calculate_pair_generation_rate)
+        E_signal, E_idler = calculate_pair_generation_rate_vec(x, 0, thetap, s + i, i, s, span)
+        # E_signal_total += np.abs(E_signal)**2
+        # E_idler_total += np.abs(E_idler)**2
+        E_signal_total += E_signal
+        E_idler_total += E_idler
 
+        # plt.figure(figsize=(8, 6))
+        # plt.plot(x, np.abs(E_signal)**2)
+        # plt.plot(x, np.abs(E_idler)**2)
+        # import pdb; pdb.set_trace()
 
-    # # # Plot beam in real space
-    # span = 100e-6 #??
-    # span = 1e-3 #??
-    # x = np.linspace(-span, span, 500)
+    z1 = E_signal_total
+    z2 = E_idler_total
 
-    # calculate_pair_generation_rate_vec = np.vectorize(calculate_pair_generation_rate)
-    # z = calculate_pair_generation_rate_vec(x, 0, thetap, omegap, omegai, omegas)
-    # plt.figure(figsize=(8, 6))
-    # plt.plot(x, z)
+    plt.figure(figsize=(8, 6))
+    plt.plot(x, z1)
+    plt.plot(x, z2)
+#    plt.plot(x, np.abs(z1 + z2)**2)
   
-    # plt.title( "BBO crystal entangled photons" ) 
-    # plt.show() 
+    plt.title( "BBO crystal entangled photons" ) 
+    plt.show() 
  
+    end_time = time.time()
+    print(f"Elapsed time: {end_time - start_time}")
 
 
-#     import pdb; pdb.set_trace()
+    import pdb; pdb.set_trace()
 
     ##Create a grid of x and y values
    ##span = 100e-6 #??
@@ -413,10 +511,11 @@ def plot_rings():
     X, Y = np.meshgrid(x, y)
 
     calculate_pair_generation_rate_vec = np.vectorize(calculate_pair_generation_rate)
-    Z = calculate_pair_generation_rate_vec(X, Y, thetap, omegap, omegai, omegas, span)
+    Z1, Z2 = calculate_pair_generation_rate_vec(X, Y, thetap, omegap, omegai, omegas, span)
+    Z = np.abs(Z1 + Z2)**2
 #    Z_idler = calculate_pair_generation_rate_vec(X, Y, thetap, omegap, omegai, omegas)
 
-    # parallel_calculate = functools.partial(calculate_pair_generation_rate_vec, thetap=thetap, omegap=omegap, omegai=omegai, omegas=omegas)
+    # parallel_calculate = functools.partial(calculate_pair_generation_rate_vec, thetap=thetap, omegap=omegap, omegai=omegai, omegas=omegas, dr=span)
     # Z = Parallel(n_jobs=4)(delayed(parallel_calculate)(xi, yi) for xi in x for yi in y)
     # Z = np.reshape(np.array(Z), [50, 50]).T
 
@@ -431,7 +530,10 @@ def plot_rings():
     plt.ylabel("y")
 
     plt.title( "BBO crystal entangled photons" ) 
-    plt.show() 
+    plt.show()
+
+    # Todo, plot conditional probability
+    # Todo, momentum space plot
 
 def main():
     """ main function """
