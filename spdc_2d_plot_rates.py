@@ -13,36 +13,7 @@ crystal_length = 0.002    # Length of the nonlinear crystal in meters
 C = 2.99792e8 # Speed of light, in meters per second
 np.random.seed(0)
 
-# def monte_carlo_integration(f, s, num_samples=100000):
-
-#     np.random.seed(8)
-
-#     # Generate random samples from the importance distribution g
-#     samples = np.random.normal(scale=s, size=(num_samples, 4))
-#     x1_samples, y1_samples, x2_samples, y2_samples = samples.T
-
-#     def g(x1, x2, y1, y2):
-#         np.exp(-((x1**2 + y1**2 + x2**2 + y2**2) / (2 * s**2)))
-
-#     # Evaluate the function and the importance distribution at the sample points
-#     f_values = f(x1_samples, y1_samples, x2_samples, y2_samples)
-#     g_values = g(x1_samples, y1_samples, x2_samples, y2_samples)
-
-#     # Compute the weighted average
-#     import pdb; pdb.set_trace()
-#     avg_value_real = np.mean(np.real(f_values) / np.real(g_values))
-#     avg_value_imag = np.mean(np.imag(f_values) / np.imag(g_values))
-#     avg_value = avg_value_real + 1j * avg_value_imag
-
-#     # The volume of the integration region
-#     volume = (2 * s)**4
-
-#     # Estimate the integral as the weighted average times the volume
-#     integral_estimate = avg_value * volume
-
-#     return integral_estimate
-
-def monte_carlo_integration_momentum(f, dq, num_samples=300000):
+def monte_carlo_integration_momentum(f, dq, num_samples=200000):
     ## Generate random samples within the bounds [-dq, dq] for each variable
     qix_samples = np.random.uniform(-dq, dq, num_samples)
     qiy_samples = np.random.uniform(-dq, dq, num_samples)
@@ -68,94 +39,18 @@ def monte_carlo_integration_momentum(f, dq, num_samples=300000):
     return integral_estimate
 
 
-# def monte_carlo_integration_position(f, dq, dr, num_samples=1):
-#   #  np.random.seed(0) #Use the same positions each time this is called
-#     # Generate random samples within the bounds [-dr, dr] for each variable
-#     x_samples = np.random.uniform(-dr, dr, num_samples)
-#     y_samples = np.random.uniform(-dr, dr, num_samples)
-#     print(x_samples)
-#     print(y_samples)
-
-#     # Evaluate the function at each sample point
-#     #func_values = f(qix_samples, qiy_samples, qsx_samples, qsy_samples, x_samples, y_samples)
-#     func_values = np.zeros(num_samples, dtype='complex128') # Technically won't be complex here
-#     for n in range(num_samples): # can simplify?
-#         x_sample = -0.00075
-#         y_sample = 0
-# #        x_sample = x_samples[n]
-# #        y_sample = y_samples[n]
-#         g = functools.partial(f, x_pos_integrate=x_sample, y_pos_integrate=y_sample)
-#         func_values[n] = monte_carlo_integration_momentum(g, dq)
-
-#     # Calculate the average value of the function
-#     avg_value = np.mean(func_values)
-    
-#     # The volume of the integration region
-#     volume = (2 * dr)**2
-    
-#     # Estimate the integral as the average value times the volume
-#     integral_estimate = avg_value * volume
-    
-#     return integral_estimate
-
-
-# def monte_carlo_integration_momentum(f, dq, num_samples=200000):
-#     ## Generate random samples within the bounds [-dq, dq] for each variable
-#     # qix_samples = np.random.uniform(-dq, dq, num_samples)
-#     # qiy_samples = np.random.uniform(-dq, dq, num_samples)
-#     # qsx_samples = np.random.uniform(-dq, dq, num_samples)
-#     # qsy_samples = np.random.uniform(-dq, dq, num_samples)
-
-#     # Sample more heavily from point opposite expected point
-#     # qix_samples = np.random.normal(loc=-0.00075, scale=dq/5, size=num_samples) * np.random.choice([-1, 1], size=num_samples)
-#     # qiy_samples = np.random.normal(loc=0, scale=dq/5, size=num_samples) * np.random.choice([-1, 1], size=num_samples)
-#     # qsx_samples = np.random.normal(loc=-0.00075, scale=dq/5, size=num_samples) * np.random.choice([-1, 1], size=num_samples)
-#     # qsy_samples = np.random.normal(loc=0, scale=dq/5, size=num_samples) * np.random.choice([-1, 1], size=num_samples)
-
-#     qix_dist = norm(loc=-0.00075, scale=dq/5)
-#     qiy_dist = norm(loc=0, scale=dq/5)
-#     qsx_dist = norm(loc=-0.00075, scale=dq/5)
-#     qsy_dist = norm(loc=0, scale=dq/5)
-
-#     qix_samples = qix_dist.rvs(num_samples) * np.random.choice([-1, 1], size=num_samples)
-#     qiy_samples = qiy_dist.rvs(num_samples) * np.random.choice([-1, 1], size=num_samples)
-#     qsx_samples = qsx_dist.rvs(num_samples) * np.random.choice([-1, 1], size=num_samples)
-#     qsy_samples = qsy_dist.rvs(num_samples) * np.random.choice([-1, 1], size=num_samples)
-
-#     # Evaluate the function at each sample point
-#     func_values = f(qix_samples, qiy_samples, qsx_samples, qsy_samples) / (2**4 * qix_dist.pdf(qix_samples) * qiy_dist.pdf(qiy_samples) * qsx_dist.pdf(qsx_samples) * qsy_dist.pdf(qsy_samples))
-
-#     # Square the absolute value of the result
-#     func_values_sq = np.abs(func_values)**2 
-
-#     # Calculate the average value of the function
-#     avg_value = np.mean(func_values)
-    
-#     # The volume of the integration region
-#     volume = (2 * dq)**4
-    
-#     # Estimate the integral as the average value times the volume
-#     integral_estimate = avg_value * volume
-    
-#     return integral_estimate
-
-
-def monte_carlo_integration_position(f, dq, dr, num_samples=1):
+def monte_carlo_integration_position(f, dq, dr, num_samples=10):
   #  np.random.seed(0) #Use the same positions each time this is called
     # Generate random samples within the bounds [-dr, dr] for each variable
     x_samples = np.random.uniform(-dr, dr, num_samples)
     y_samples = np.random.uniform(-dr, dr, num_samples)
-    print(x_samples)
-    print(y_samples)
 
     # Evaluate the function at each sample point
     #func_values = f(qix_samples, qiy_samples, qsx_samples, qsy_samples, x_samples, y_samples)
     func_values = np.zeros(num_samples, dtype='complex128') # Technically won't be complex here
     for n in range(num_samples): # can simplify?
-        x_sample = 0.00075
-        y_sample = 0
-#        x_sample = x_samples[n]
-#        y_sample = y_samples[n]
+        x_sample = x_samples[n]
+        y_sample = y_samples[n]
         g = functools.partial(f, x_pos_integrate=x_sample, y_pos_integrate=y_sample)
         func_values[n] = monte_carlo_integration_momentum(g, dq)
 
@@ -169,28 +64,6 @@ def monte_carlo_integration_position(f, dq, dr, num_samples=1):
     integral_estimate = avg_value * volume
     
     return integral_estimate
-
-
-
-
-
-def complex_quadrature(func, lims, **kwargs):
-    def real_func(x1, x2, x3, x4):
-        return np.real(func(x1, x2, x3, x4))
-    def imag_func(x1, x2, x3, x4):
-        return np.imag(func(x1, x2, x3, x4))
-    real_integral = integrate.nquad(real_func, lims, **kwargs)
-    imag_integral = integrate.nquad(imag_func, lims, **kwargs)
-    return (real_integral[0] + 1j*imag_integral[0], real_integral[1] + 1j * imag_integral[1])
-
-def complex_quadrature2var(func, lims, **kwargs):
-    def real_func(x1, x2):
-        return np.real(func(x1, x2))
-    def imag_func(x1, x2):
-        return np.imag(func(x1, x2))
-    real_integral = integrate.nquad(real_func, lims, **kwargs)
-    imag_integral = integrate.nquad(imag_func, lims, **kwargs)
-    return (real_integral[0] + 1j*imag_integral[0], real_integral[1] + 1j * imag_integral[1])
 
 
 # Sellmeier equations for BBO
@@ -369,7 +242,7 @@ def calculate_pair_generation_rate(x_pos, y_pos, thetap, omegap, omegai, omegas,
         return integrand
     dqix = (omegai / C)*0.0034 # ?enclose circle in momentum space
     dqiy = (omegai / C)*0.0034 # 0.0014
-    dqsx = (omegas / C)*0.0034 # Circle not enclosed
+    dqsx = (omegas / C)*0.0034 # 
     dqsy = (omegas / C)*0.0034 # ? Guess
 
 
@@ -392,45 +265,12 @@ def calculate_pair_generation_rate(x_pos, y_pos, thetap, omegap, omegai, omegas,
 #     import pdb; pdb.set_trace()
 
 
-    #### Hack the integral
-    # Bring rate_integrand outside to calculate only once
-    # real_part = np.sum(np.sum(np.sum(np.sum(np.real(rate_integrand(X, Y))))))
-    # imag_part = np.sum(np.sum(np.sum(np.sum(np.imag(rate_integrand(X, Y))))))
-    # result = real_part + 1j * imag_part
-
-#    result = np.sum(np.sum(np.sum(np.sum(rate_integrand(X, Y)))))
     rate_integrand_signal = functools.partial(rate_integrand, integrate_over="idler")
     rate_integrand_idler = functools.partial(rate_integrand, integrate_over="signal")
 
     result_signal = monte_carlo_integration_position(rate_integrand_signal, dqix, dr)
     result_idler = result_signal # FOR debug
-#    result_idler = monte_carlo_integration(rate_integrand_idler, dqix, dr)
-#    print(f"result_signal: {result_signal}")
-#    print(f"result_idler: {result_idler}")
-#    result = np.abs(result_idler)**2 
-    # #### Hack the integral
-    # real_part = np.sum(np.sum(np.real(rate_integrand(X, Y, 0, 0))))
-    # imag_part = np.sum(np.sum(np.imag(rate_integrand(X, Y, 0, 0))))
-    # result = real_part + 1j * imag_part
 
-    # error_estimate = 0
-
-    # # #### Hack the integral
-    # real_part = np.sum(np.sum(np.real(rate_integrand(0, 0, 0, 0))))
-    # imag_part = np.sum(np.sum(np.imag(rate_integrand(0, 0, 0, 0))))
-    # result = real_part + 1j * imag_part
-    # error_estimate = 0
-
-
-    #### Use Scipy for the integral
-#    opts = {"limit": 2}
-    opts = {}
-#    result, error_estimate = complex_quadrature(rate_integrand, [[-dqix, dqix], [-dqiy, dqiy], [-dqsx, dqsx], [-dqsy, dqsy]], opts=opts)
-#    result, error_estimate = complex_quadrature2var(rate_integrand, [[-dqix, dqix], [-dqiy, dqiy]], opts=opts)
-
- #   print(f"Integral result: {result}")
- #   print(f"Error estimate: {error_estimate}")
-    ####
     return result_signal, result_idler
 
 def plot_rings():
