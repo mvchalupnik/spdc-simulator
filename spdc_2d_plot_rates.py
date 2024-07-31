@@ -13,32 +13,36 @@ crystal_length = 0.002    # Length of the nonlinear crystal in meters
 C = 2.99792e8 # Speed of light, in meters per second
 np.random.seed(0)
 
-def monte_carlo_integration_momentum(f, dq, num_samples=20000):
+def monte_carlo_integration_momentum(f, dq, num_samples=200000):
     ## Generate random samples within the bounds [-dq, dq] for each variable
+   # np.random.seed(1)
     qix_samples = np.random.uniform(-dq, dq, num_samples)
     qiy_samples = np.random.uniform(-dq, dq, num_samples)
     qsx_samples = np.random.uniform(-dq, dq, num_samples)
     qsy_samples = np.random.uniform(-dq, dq, num_samples)
 
+    # qix_samples = np.random.uniform(-dq, -dq*0.6, num_samples)* np.random.choice([-1, 1], size=num_samples)
+    # qiy_samples = np.random.uniform(-dq, -dq*0.6, num_samples) * np.random.choice([-1, 1], size=num_samples)
+    # qsx_samples = np.random.uniform(-dq, -dq*0.6, num_samples)* np.random.choice([-1, 1], size=num_samples)
+    # qsy_samples = np.random.uniform(-dq, -dq*0.6, num_samples)* np.random.choice([-1, 1], size=num_samples)
+
 
     # Evaluate the function at each sample point
     func_values = f(qix_samples, qiy_samples, qsx_samples, qsy_samples)
 
-    # Square the absolute value of the result
-    func_values_sq = np.abs(func_values)**2 
-
     # Calculate the average value of the function
-    avg_value = np.mean(func_values_sq)
-#    avg_value = np.mean(func_values)
-#    import pdb; pdb.set_trace()
+    avg_value = np.mean(func_values)
     
     # The volume of the integration region
     volume = (2 * dq)**4
     
     # Estimate the integral as the average value times the volume
     integral_estimate = avg_value * volume
+
+    # Square the integral at the end
+    integral_estimate_sq = np.abs(integral_estimate)**2
     
-    return integral_estimate
+    return integral_estimate_sq
 
 
 def monte_carlo_integration_position(f, dq, dr, num_samples=1):
@@ -51,7 +55,7 @@ def monte_carlo_integration_position(f, dq, dr, num_samples=1):
     #func_values = f(qix_samples, qiy_samples, qsx_samples, qsy_samples, x_samples, y_samples)
     func_values = np.zeros(num_samples, dtype='complex128') # Technically won't be complex here
     for n in range(num_samples): # can simplify?
-        x_sample = 0#x_samples[n]
+        x_sample = 0.001# x_samples[n] 0.00025 when integrating to 1 mm
         y_sample = 0#y_samples[n]
         g = functools.partial(f, x_pos_integrate=x_sample, y_pos_integrate=y_sample)
         func_values[n] = monte_carlo_integration_momentum(g, dq)
@@ -234,16 +238,16 @@ def calculate_pair_generation_rate(x_pos, y_pos, thetap, omegap, omegai, omegas,
         # np.exp(1j * (qs_dot_rhos + qi_dot_rhoi - qs_abs**2 * z_pos / (2 * ks) - qi_abs**2 * z_pos / (2 * ki)))
 
         # DEBUG
-        #integrand = pump_function(qix + qsx, qiy + qsy, kpz, omegap)
+    #    integrand = pump_function(qix + qsx, qiy + qsy, kpz, omegap)
 #        integrand = phase_matching(qix, crystal_length)
-      #  integrand = phase_matching(delta_k_type_1(qsx, qix, qsy, qiy, thetap, omegap, omegai, omegas), crystal_length) * pump_function(qix + qsx, qiy + qsy, kpz, omegap)
+        #integrand = phase_matching(delta_k_type_1(qsx, qix, qsy, qiy, thetap, omegap, omegai, omegas), crystal_length) * pump_function(qix + qsx, qiy + qsy, kpz, omegap)
         #integrand = delta_k_type_1(qsx, qix, qsy, qiy, thetap, omegap, omegai, omegas)
-     #   integrand = np.exp(1j * (qs_dot_rhos + qi_dot_rhoi - qs_abs**2 * z_pos / (2 * ks) - qi_abs**2 * z_pos / (2 * ki)))
+    #    integrand = np.exp(1j * (qs_dot_rhos + qi_dot_rhoi - qs_abs**2 * z_pos / (2 * ks) - qi_abs**2 * z_pos / (2 * ki)))
 
    #     import pdb; pdb.set_trace()
         return integrand
     dqix = (omegai / C)*0.0014 # ?enclose circle in momentum space
-    dqiy = (omegai / C)*0.0014 # 0.0014
+    dqiy = (omegai / C)*0.0014 # 0.014 to enclose, 0.003 to run
     dqsx = (omegas / C)*0.0014 # 
     dqsy = (omegas / C)*0.0014 # ? Guess
 
@@ -271,7 +275,8 @@ def calculate_pair_generation_rate(x_pos, y_pos, thetap, omegap, omegai, omegas,
     rate_integrand_idler = functools.partial(rate_integrand, integrate_over="signal")
 
     result_signal = monte_carlo_integration_position(rate_integrand_signal, dqix, dr)
-    result_idler = result_signal # FOR debug
+    result_idler = result_signal
+#    result_idler = monte_carlo_integration_position(rate_integrand_idler, dqix, dr) # comment to debug
 
     return result_signal, result_idler
 
@@ -295,7 +300,10 @@ def plot_rings():
     # Plot beam in real space
     span = 100e-6 #??
     span = 3e-3#3e-4 #??
-    span = 1e-3
+
+#    span = 1e-3
+
+#    span = 2.8e-3
     num_points = 100
     x = np.linspace(-span, span, num_points)
 
@@ -322,7 +330,7 @@ def plot_rings():
 
     ##Create a grid of x and y values
    ##span = 100e-6 #??
-    span = .1e-3
+    span = 2e-3
     x = np.linspace(-span, span, 50)
     y = np.linspace(-span, span, 50)
     X, Y = np.meshgrid(x, y)
