@@ -14,7 +14,11 @@ crystal_length = 0.002    # Length of the nonlinear crystal in meters
 C = 2.99792e8 # Speed of light, in meters per second
 np.random.seed(0)
 
-def monte_carlo_integration_momentum(f, dq, num_samples=200000):
+def monte_carlo_integration_momentum(f, dq, num_samples=20000):
+    """
+    Integrate function `f` using the Monte Carlo method along four dimensions of momentum,
+    qx, qy for both the signal and idler photons.
+    """
     ## Generate random samples within the bounds [-dq, dq] for each variable
     qix_samples = np.random.uniform(-dq, dq, num_samples)
     qiy_samples = np.random.uniform(-dq, dq, num_samples)
@@ -41,14 +45,14 @@ def monte_carlo_integration_momentum(f, dq, num_samples=200000):
 
 def monte_carlo_integration_position(f, dq, dr, num_samples=1):
     # Generate random samples within the bounds [-dr, dr] for each variable
-    x_samples = np.random.uniform(-dr, dr, num_samples)
-    y_samples = np.random.uniform(-dr, dr, num_samples)
+    # x_samples = np.random.uniform(-dr, dr, num_samples)
+    # y_samples = np.random.uniform(-dr, dr, num_samples)
 
     # Evaluate the function at each sample point
     func_values = np.zeros(num_samples, dtype='complex128') # Technically won't be complex here
     for n in range(num_samples): # can simplify?
         x_sample = dr# x_samples[n] 0.00025 when integrating to 1 mm
-        y_sample = 0#y_samples[n]
+        y_sample = 0.001#y_samples[n]
         g = functools.partial(f, x_pos_integrate=x_sample, y_pos_integrate=y_sample)
         func_values[n] = monte_carlo_integration_momentum(g, dq)
 
@@ -65,6 +69,10 @@ def monte_carlo_integration_position(f, dq, dr, num_samples=1):
 
 
 def grid_integration_position(f, dq, dr, num_samples=6):
+    """
+    Integrate along x and y. First pass function to be integrated along four dimensions
+    of momentum. 
+    """
     # Generate from a grid samples within the bounds [-dr, dr] for each variable
     x_samples = np.linspace(-dr, dr, num_samples)
     y_samples = np.linspace(-dr, dr, num_samples)
@@ -73,8 +81,6 @@ def grid_integration_position(f, dq, dr, num_samples=6):
     # Evaluate the function at each sample point
     func_values = np.zeros(len(coord_pairs), dtype='complex128') # Technically won't be complex here
     for n in range(len(coord_pairs)):
-        # x_sample = x_samples[n] ##0.00025 when integrating to 1 mm
-        # y_sample = y_samples[n]
         x_sample, y_sample = coord_pairs[n]
         g = functools.partial(f, x_pos_integrate=x_sample, y_pos_integrate=y_sample)
         func_values[n] = monte_carlo_integration_momentum(g, dq)
@@ -290,7 +296,8 @@ def calculate_pair_generation_rate(x_pos, y_pos, thetap, omegap, omegai, omegas,
     rate_integrand_signal = functools.partial(rate_integrand, integrate_over="idler")
     rate_integrand_idler = functools.partial(rate_integrand, integrate_over="signal")
 
-    result_signal = grid_integration_position(rate_integrand_signal, dqix, dr)
+  #  result_signal = monte_carlo_integration_position(rate_integrand_signal, dqix, dr)
+    result_signal = grid_integration_position(rate_integrand_idler, dqix, dr)
     result_idler = result_signal # (they're the same for type I collinear spdc)
 #    result_idler = monte_carlo_integration_position(rate_integrand_idler, dqix, dr) # comment to debug
 
@@ -314,38 +321,38 @@ def plot_rings():
     # Plot total output power as a function of theta_p
     # TODO
 
-#     # Plot beam in real space
-#     span = 100e-6 #??
-#     span = 3e-3#3e-4 #??
+    # Plot beam in real space
+    span = 3e-3
 
-#     num_points = 100
-#     x = np.linspace(-span, span, num_points)
-#     plt.figure(figsize=(8, 6))
-#     for a in [0.0001, 0.0002, 0.0003, 0.0004, 0.0005, 0.0006, 0.0007, 0.0008, 0.0009, 0.001, 0.002]:
-#         calculate_pair_generation_rate_vec = np.vectorize(calculate_pair_generation_rate)
-#         R_signal, R_idler = calculate_pair_generation_rate_vec(x, 0, thetap, omegas + omegai, omegai, omegas, a)
-#         print(f"R_signal: {R_signal}")
+    num_points = 100
+    x = np.linspace(-span, span, num_points)
+    plt.figure(figsize=(8, 6))
+    sweep_points = np.arange(-0.0012, 0.0012, 0.0001)
+    for a in sweep_points:
+        calculate_pair_generation_rate_vec = np.vectorize(calculate_pair_generation_rate)
+        R_signal = calculate_pair_generation_rate_vec(x, 0, thetap, omegas + omegai, omegai, omegas, a)
+        print(f"R_signal: {R_signal}")
 
-#         z1 = R_signal
-#         z2 = R_idler
+        z1 = R_signal
+#        z2 = R_idler
 
-#         plt.plot(x, z1, label=a)
-#    # plt.plot(x, z2)
-# #    plt.plot(x, np.abs(z1 + z2)**2)
-#     plt.legend()
-#     plt.title( "BBO crystal entangled photons" ) 
-#     plt.show() 
+        plt.plot(x, z1, label=a)
+   # plt.plot(x, z2)
+#    plt.plot(x, np.abs(z1 + z2)**2)
+  #  plt.legend()
+    plt.title( "BBO crystal entangled photons" ) 
  
-#     end_time = time.time()
-#     print(f"Elapsed time: {end_time - start_time}")
+    end_time = time.time()
+    print(f"Elapsed time: {end_time - start_time}")
 
+    plt.show() 
 
-  #  import pdb; pdb.set_trace()
+    import pdb; pdb.set_trace()
 
     ##Create a grid of x and y values
    ##span = 100e-6 #??
     span = 2e-3
-    num_points = 8
+    num_points = 6
     x = np.linspace(-span, span, num_points)
     y = np.linspace(-span, span, num_points)
     X, Y = np.meshgrid(x, y)
