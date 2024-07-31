@@ -15,17 +15,10 @@ np.random.seed(0)
 
 def monte_carlo_integration_momentum(f, dq, num_samples=200000):
     ## Generate random samples within the bounds [-dq, dq] for each variable
-   # np.random.seed(1)
     qix_samples = np.random.uniform(-dq, dq, num_samples)
     qiy_samples = np.random.uniform(-dq, dq, num_samples)
     qsx_samples = np.random.uniform(-dq, dq, num_samples)
     qsy_samples = np.random.uniform(-dq, dq, num_samples)
-
-    # qix_samples = np.random.uniform(-dq, -dq*0.6, num_samples)* np.random.choice([-1, 1], size=num_samples)
-    # qiy_samples = np.random.uniform(-dq, -dq*0.6, num_samples) * np.random.choice([-1, 1], size=num_samples)
-    # qsx_samples = np.random.uniform(-dq, -dq*0.6, num_samples)* np.random.choice([-1, 1], size=num_samples)
-    # qsy_samples = np.random.uniform(-dq, -dq*0.6, num_samples)* np.random.choice([-1, 1], size=num_samples)
-
 
     # Evaluate the function at each sample point
     func_values = f(qix_samples, qiy_samples, qsx_samples, qsy_samples)
@@ -46,13 +39,11 @@ def monte_carlo_integration_momentum(f, dq, num_samples=200000):
 
 
 def monte_carlo_integration_position(f, dq, dr, num_samples=1):
-  #  np.random.seed(0) #Use the same positions each time this is called
     # Generate random samples within the bounds [-dr, dr] for each variable
     x_samples = np.random.uniform(-dr, dr, num_samples)
     y_samples = np.random.uniform(-dr, dr, num_samples)
 
     # Evaluate the function at each sample point
-    #func_values = f(qix_samples, qiy_samples, qsx_samples, qsy_samples, x_samples, y_samples)
     func_values = np.zeros(num_samples, dtype='complex128') # Technically won't be complex here
     for n in range(num_samples): # can simplify?
         x_sample = dr# x_samples[n] 0.00025 when integrating to 1 mm
@@ -71,11 +62,9 @@ def monte_carlo_integration_position(f, dq, dr, num_samples=1):
     
     return integral_estimate
 
-
-# Sellmeier equations for BBO
 def n_o(wavelength):
     """
-    Ordinary refractive index for BBO crystal.
+    Ordinary refractive index for BBO crystal, from Sellmeier equations for BBO.
     
     :param wavelength: Wavelength of light entering the crystal.
     """
@@ -84,7 +73,7 @@ def n_o(wavelength):
 
 def n_e(wavelength):
     """
-    Extraordinary refractive index for BBO crystal.
+    Extraordinary refractive index for BBO crystal, from Sellmeier equations for BBO.
 
     :param wavelength: Wavelength of light entering the crystal.
     """
@@ -178,9 +167,10 @@ def pump_function(qpx, qpy, kp, omega):
 
     :param qpx: k-vector in the x direction for pump
     :param qpy: k-vector in the y direction for pump
-    :param kpz: k-vector for pump (?? z?)
+    :param kp: k-vector in the z direction for pump (with paraxial approximation, this is approx the total k-vector in the
+        place where it is used?)
     :param omega: Pump frequency
-    :param d: Distance behind the crystal where we are looking #??? 
+    :param d: Location of interest some distance behind the crystal
     """
     qp_abs = np.sqrt(qpx**2 + qpy**2)
     d = 107.8e-2 # pg 15
@@ -194,16 +184,15 @@ def calculate_pair_generation_rate(x_pos, y_pos, thetap, omegap, omegai, omegas,
 
     :param x_pos: Location of signal (idler) photon in the x direction a distance z away from the crystal
     :param y_pos: Location of signal (idler) photon in the y direction a distance z away from the crystal
-    :param dr: One half the area of real space to integrate the signal and idler over (integrate over the origin) (Maybe don't have to pass?)
+    :param dr: One half the area of real space centered around the origin which the signal and idler
+        will be integrated over.
     """
-    # Note: The integral could also be handled by doing an FFT
-
-    # Multiply by detector efficiencies, and a constant dependent on epsilon_0 and chi_2
+    # Also can multiply by detector efficiencies, and a constant dependent on epsilon_0 and chi_2
 
     # z is distance away from crystal along pump propagation direction
     z_pos = 35e-3 # 35 millimeters, page 15
-    ks = omegas / C # ? Guess? divide by n?
-    ki = omegai / C # ? Guess? divide by n?
+    ks = omegas / C #
+    ki = omegai / C #
     kpz = (omegas + omegai) / C # This is on page 8 in the bottom paragraph on the left column
     omegap = omegas + omegai # This is on page 8 in the bottom paragraph on the left column [NOTE this is also passed in]
 
@@ -230,7 +219,6 @@ def calculate_pair_generation_rate(x_pos, y_pos, thetap, omegap, omegai, omegas,
         qs_abs = np.sqrt(qsx**2 + qsy**2)
         qi_abs = np.sqrt(qix**2 + qiy**2)
 
-        # qix + qsx ? pump_function
         integrand = np.exp(1j * (ks + ki) * z_pos) * pump_function(qix + qsx, qiy + qsy, kpz, omegap) * phase_matching(delta_k_type_1(qsx, qix, qsy, qiy, thetap, omegap, omegai, omegas), crystal_length) * \
         np.exp(1j * (qs_dot_rhos + qi_dot_rhoi - qs_abs**2 * z_pos / (2 * ks) - qi_abs**2 * z_pos / (2 * ki)))
 
