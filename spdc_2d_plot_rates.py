@@ -12,7 +12,7 @@ import itertools
 # Constants
 crystal_length = 0.002    # Length of the nonlinear crystal in meters
 C = 2.99792e8 # Speed of light, in meters per second
-np.random.seed(0)
+np.random.seed(1)
 
 def monte_carlo_integration_momentum(f, dq, num_samples=20000):
     """
@@ -52,7 +52,7 @@ def monte_carlo_integration_position(f, dq, dr, num_samples=1):
     func_values = np.zeros(num_samples, dtype='complex128') # Technically won't be complex here
     for n in range(num_samples): # can simplify?
         x_sample = dr# x_samples[n] 0.00025 when integrating to 1 mm
-        y_sample = 0.001#y_samples[n]
+        y_sample = 0#y_samples[n]
         g = functools.partial(f, x_pos_integrate=x_sample, y_pos_integrate=y_sample)
         func_values[n] = monte_carlo_integration_momentum(g, dq)
 
@@ -260,11 +260,11 @@ def calculate_pair_generation_rate(x_pos, y_pos, thetap, omegap, omegai, omegas,
         # np.exp(1j * (qs_dot_rhos + qi_dot_rhoi - qs_abs**2 * z_pos / (2 * ks) - qi_abs**2 * z_pos / (2 * ki)))
 
         # DEBUG
-    #    integrand = pump_function(qix + qsx, qiy + qsy, kpz, omegap)
-#        integrand = phase_matching(qix, crystal_length)
-        #integrand = phase_matching(delta_k_type_1(qsx, qix, qsy, qiy, thetap, omegap, omegai, omegas), crystal_length) * pump_function(qix + qsx, qiy + qsy, kpz, omegap)
-        #integrand = delta_k_type_1(qsx, qix, qsy, qiy, thetap, omegap, omegai, omegas)
-    #    integrand = np.exp(1j * (qs_dot_rhos + qi_dot_rhoi - qs_abs**2 * z_pos / (2 * ks) - qi_abs**2 * z_pos / (2 * ki)))
+        #integrand = pump_function(qix + qsx, qiy + qsy, kpz, omegap)
+        integrand = phase_matching(delta_k_type_1(qsx, qix, qsy, qiy, thetap, omegap, omegai, omegas), crystal_length) * pump_function(qix + qsx, qiy + qsy, kpz, omegap)
+      #  integrand = phase_matching(delta_k_type_1(qsx, qix, qsy, qiy, thetap, omegap, omegai, omegas), crystal_length)
+     #   integrand = delta_k_type_1(qsx, qix, qsy, qiy, thetap, omegap, omegai, omegas)
+      #  integrand = np.exp(1j * (qs_dot_rhos + qi_dot_rhoi - qs_abs**2 * z_pos / (2 * ks) - qi_abs**2 * z_pos / (2 * ki)))
 
    #     import pdb; pdb.set_trace()
         return integrand
@@ -273,31 +273,32 @@ def calculate_pair_generation_rate(x_pos, y_pos, thetap, omegap, omegai, omegas,
     dqsx = (omegas / C)*0.0014 # 
     dqsy = (omegas / C)*0.0014 # ? Guess
 
+    x = np.linspace(-dqix, dqix, 1000)
+    y = np.linspace(-dqiy, dqiy, 1000)
+    X, Y = np.meshgrid(x, y)
+    ##Momentum must be conserved, so qix = -qsx and qiy = -qiy?
+    ##(Assume qpx and qpy negligible? Though they appear in the expression for the pump beam)
+#    Z = np.abs(rate_integrand(X, Y, X, Y))
+    # print("test1")
+    # print(np.abs(rate_integrand(X, Y, -X, -Y)))
+    # print("test2")
+    # print(np.abs(rate_integrand(X, Y, X, Y)))
+#    Z = np.abs(rate_integrand(X, Y, -X, -Y, 0, 0, "signal")) # To look at total integrand, and phase matching function (look at abs or real part of integrand)
+    Z = np.real(rate_integrand(-X, -Y, -X, -Y, 0, 0, "signal")) # To look at pump beam, phase matching function, and e^i q.rho part of integral
+  #  Z = np.real(rate_integrand(-X, -Y, -X, -Y, 0, 0, "signal")) +  np.real(rate_integrand(X, Y, X, Y, 0, 0, "signal")) # To look at pump beam, phase matching function, and e^i q.rho part of integral
 
-#     x = np.linspace(-dqix, dqix, 1000)
-#     y = np.linspace(-dqiy, dqiy, 1000)
-#     X, Y = np.meshgrid(x, y)
-#     ##Momentum must be conserved, so qix = -qsx and qiy = -qiy?
-#     ##(Assume qpx and qpy negligible? Though they appear in the expression for the pump beam)
-# #    Z = np.abs(rate_integrand(X, Y, X, Y))
-#     # print("test1")
-#     # print(np.abs(rate_integrand(X, Y, -X, -Y)))
-#     # print("test2")
-#     # print(np.abs(rate_integrand(X, Y, X, Y)))
-#     Z = np.abs(rate_integrand(X, Y, -X, -Y, 0, 0, "signal"))
-
-#     # Z = np.abs(rate_integrand(X, Y))
-#     plt.imshow(Z, extent=(x.min(), x.max(), y.min(), y.max()), origin='lower', cmap='gray')
-#     plt.xlabel("qx")
-#     plt.ylabel("qy")
-#     import pdb; pdb.set_trace()
+    # Z = np.abs(rate_integrand(X, Y))
+    plt.imshow(Z, extent=(x.min(), x.max(), y.min(), y.max()), origin='lower', cmap='gray')
+    plt.xlabel("qx")
+    plt.ylabel("qy")
+    import pdb; pdb.set_trace()
 
 
     rate_integrand_signal = functools.partial(rate_integrand, integrate_over="idler")
     rate_integrand_idler = functools.partial(rate_integrand, integrate_over="signal")
 
-  #  result_signal = monte_carlo_integration_position(rate_integrand_signal, dqix, dr)
-    result_signal = grid_integration_position(rate_integrand_idler, dqix, dr)
+    result_signal = monte_carlo_integration_position(rate_integrand_signal, dqix, dr)
+  #  result_signal = grid_integration_position(rate_integrand_idler, dqix, dr)
     result_idler = result_signal # (they're the same for type I collinear spdc)
 #    result_idler = monte_carlo_integration_position(rate_integrand_idler, dqix, dr) # comment to debug
 
@@ -313,6 +314,7 @@ def plot_rings():
 
     # Set parameters
     thetap = 28.95 * np.pi / 180
+  #  thetap = 27 * np.pi / 180
 
     omegap = (2 * np.pi * C) / pump_wavelength # ?
     omegai = (2 * np.pi * C) / down_conversion_wavelength # ?
@@ -329,6 +331,7 @@ def plot_rings():
     plt.figure(figsize=(8, 6))
     sweep_points = np.arange(-0.0012, 0.0012, 0.0001)
     for a in sweep_points:
+        x = 0 # DEBUG
         calculate_pair_generation_rate_vec = np.vectorize(calculate_pair_generation_rate)
         R_signal = calculate_pair_generation_rate_vec(x, 0, thetap, omegas + omegai, omegai, omegas, a)
         print(f"R_signal: {R_signal}")
