@@ -7,6 +7,7 @@ from joblib import Parallel, delayed
 from scipy.stats import qmc
 import functools
 from scipy.stats import norm
+import itertools
 
 # Constants
 crystal_length = 0.002    # Length of the nonlinear crystal in meters
@@ -48,6 +49,33 @@ def monte_carlo_integration_position(f, dq, dr, num_samples=1):
     for n in range(num_samples): # can simplify?
         x_sample = dr# x_samples[n] 0.00025 when integrating to 1 mm
         y_sample = 0#y_samples[n]
+        g = functools.partial(f, x_pos_integrate=x_sample, y_pos_integrate=y_sample)
+        func_values[n] = monte_carlo_integration_momentum(g, dq)
+
+    # Calculate the average value of the function
+    avg_value = np.mean(func_values)
+    
+    # The volume of the integration region
+    volume = (2 * dr)**2
+    
+    # Estimate the integral as the average value times the volume
+    integral_estimate = avg_value * volume
+    
+    return integral_estimate
+
+
+def grid_integration_position(f, dq, dr, num_samples=6):
+    # Generate from a grid samples within the bounds [-dr, dr] for each variable
+    x_samples = np.linspace(-dr, dr, num_samples)
+    y_samples = np.linspace(-dr, dr, num_samples)
+    coord_pairs = list(itertools.product(x_samples, y_samples))
+
+    # Evaluate the function at each sample point
+    func_values = np.zeros(len(coord_pairs), dtype='complex128') # Technically won't be complex here
+    for n in range(len(coord_pairs)):
+        # x_sample = x_samples[n] ##0.00025 when integrating to 1 mm
+        # y_sample = y_samples[n]
+        x_sample, y_sample = coord_pairs[n]
         g = functools.partial(f, x_pos_integrate=x_sample, y_pos_integrate=y_sample)
         func_values[n] = monte_carlo_integration_momentum(g, dq)
 
@@ -262,11 +290,12 @@ def calculate_pair_generation_rate(x_pos, y_pos, thetap, omegap, omegai, omegas,
     rate_integrand_signal = functools.partial(rate_integrand, integrate_over="idler")
     rate_integrand_idler = functools.partial(rate_integrand, integrate_over="signal")
 
-    result_signal = monte_carlo_integration_position(rate_integrand_signal, dqix, dr)
-    result_idler = result_signal
+    result_signal = grid_integration_position(rate_integrand_signal, dqix, dr)
+    result_idler = result_signal # (they're the same for type I collinear spdc)
 #    result_idler = monte_carlo_integration_position(rate_integrand_idler, dqix, dr) # comment to debug
 
-    return result_signal, result_idler
+#    return result_signal, result_idler
+    return result_signal
 
 def plot_rings():
     """ Plot entangled pair rings. """
@@ -285,52 +314,48 @@ def plot_rings():
     # Plot total output power as a function of theta_p
     # TODO
 
-    # Plot beam in real space
-    span = 100e-6 #??
-    span = 3e-3#3e-4 #??
+#     # Plot beam in real space
+#     span = 100e-6 #??
+#     span = 3e-3#3e-4 #??
 
-#    span = 1e-3
+#     num_points = 100
+#     x = np.linspace(-span, span, num_points)
+#     plt.figure(figsize=(8, 6))
+#     for a in [0.0001, 0.0002, 0.0003, 0.0004, 0.0005, 0.0006, 0.0007, 0.0008, 0.0009, 0.001, 0.002]:
+#         calculate_pair_generation_rate_vec = np.vectorize(calculate_pair_generation_rate)
+#         R_signal, R_idler = calculate_pair_generation_rate_vec(x, 0, thetap, omegas + omegai, omegai, omegas, a)
+#         print(f"R_signal: {R_signal}")
 
-#    span = 2.8e-3
-    num_points = 100
-    x = np.linspace(-span, span, num_points)
-    plt.figure(figsize=(8, 6))
-    for a in [0.0001, 0.0002, 0.0003, 0.0004, 0.0005, 0.0006, 0.0007, 0.0008, 0.0009, 0.001, 0.002]:
-        calculate_pair_generation_rate_vec = np.vectorize(calculate_pair_generation_rate)
-        R_signal, R_idler = calculate_pair_generation_rate_vec(x, 0, thetap, omegas + omegai, omegai, omegas, a)
-        print(f"R_signal: {R_signal}")
+#         z1 = R_signal
+#         z2 = R_idler
 
-        z1 = R_signal
-        z2 = R_idler
-
-        plt.plot(x, z1, label=a)
-   # plt.plot(x, z2)
-#    plt.plot(x, np.abs(z1 + z2)**2)
-    plt.legend()
-    plt.title( "BBO crystal entangled photons" ) 
-    plt.show() 
+#         plt.plot(x, z1, label=a)
+#    # plt.plot(x, z2)
+# #    plt.plot(x, np.abs(z1 + z2)**2)
+#     plt.legend()
+#     plt.title( "BBO crystal entangled photons" ) 
+#     plt.show() 
  
-    end_time = time.time()
-    print(f"Elapsed time: {end_time - start_time}")
+#     end_time = time.time()
+#     print(f"Elapsed time: {end_time - start_time}")
 
 
-    import pdb; pdb.set_trace()
+  #  import pdb; pdb.set_trace()
 
     ##Create a grid of x and y values
    ##span = 100e-6 #??
     span = 2e-3
-    x = np.linspace(-span, span, 50)
-    y = np.linspace(-span, span, 50)
+    num_points = 8
+    x = np.linspace(-span, span, num_points)
+    y = np.linspace(-span, span, num_points)
     X, Y = np.meshgrid(x, y)
 
     calculate_pair_generation_rate_vec = np.vectorize(calculate_pair_generation_rate)
-    Z1, Z2 = calculate_pair_generation_rate_vec(X, Y, thetap, omegap, omegai, omegas, span)
+    #Z1, Z2 = calculate_pair_generation_rate_vec(X, Y, thetap, omegap, omegai, omegas, span)
 
-#    Z_idler = calculate_pair_generation_rate_vec(X, Y, thetap, omegap, omegai, omegas)
-
-    # parallel_calculate = functools.partial(calculate_pair_generation_rate_vec, thetap=thetap, omegap=omegap, omegai=omegai, omegas=omegas, dr=span)
-    # Z = Parallel(n_jobs=4)(delayed(parallel_calculate)(xi, yi) for xi in x for yi in y)
-    # Z = np.reshape(np.array(Z), [50, 50]).T
+    parallel_calculate = functools.partial(calculate_pair_generation_rate_vec, thetap=thetap, omegap=omegap, omegai=omegai, omegas=omegas, dr=span)
+    Z1 = Parallel(n_jobs=4)(delayed(parallel_calculate)(xi, yi) for xi in x for yi in y)
+    Z = np.reshape(np.array(Z1), [num_points, num_points]).T
 
 #    Z = calculate_pair_generation_rate(x=4e-6, y=0, thetap=thetap, omegap=omegap, omegai=omegai, omegas=omegas)
 
@@ -338,7 +363,7 @@ def plot_rings():
     print(f"Elapsed time: {end_time - start_time}")
 
     plt.figure(figsize=(8, 6))
-    plt.imshow(np.abs(Z1), extent=(x.min(), x.max(), y.min(), y.max()), origin='lower', cmap='gray')
+    plt.imshow(np.abs(Z), extent=(x.min(), x.max(), y.min(), y.max()), origin='lower', cmap='gray')
     plt.xlabel("x")
     plt.ylabel("y")
 
@@ -347,6 +372,8 @@ def plot_rings():
 
     # Todo, plot conditional probability
     # Todo, momentum space plot
+
+    # todo, type 2 noncollinear
 
 def main():
     """ main function """
