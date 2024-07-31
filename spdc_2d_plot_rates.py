@@ -55,7 +55,7 @@ def monte_carlo_integration_position(f, dq, dr, num_samples=1):
     #func_values = f(qix_samples, qiy_samples, qsx_samples, qsy_samples, x_samples, y_samples)
     func_values = np.zeros(num_samples, dtype='complex128') # Technically won't be complex here
     for n in range(num_samples): # can simplify?
-        x_sample = 0.001# x_samples[n] 0.00025 when integrating to 1 mm
+        x_sample = dr# x_samples[n] 0.00025 when integrating to 1 mm
         y_sample = 0#y_samples[n]
         g = functools.partial(f, x_pos_integrate=x_sample, y_pos_integrate=y_sample)
         func_values[n] = monte_carlo_integration_momentum(g, dq)
@@ -306,19 +306,19 @@ def plot_rings():
 #    span = 2.8e-3
     num_points = 100
     x = np.linspace(-span, span, num_points)
-
-    calculate_pair_generation_rate_vec = np.vectorize(calculate_pair_generation_rate)
-    R_signal, R_idler = calculate_pair_generation_rate_vec(x, 0, thetap, omegas + omegai, omegai, omegas, span)
-    print(f"R_signal: {R_signal}")
-
-    z1 = R_signal
-    z2 = R_idler
-
     plt.figure(figsize=(8, 6))
-    plt.plot(x, z1)
-    plt.plot(x, z2)
+    for a in [0.0001, 0.0002, 0.0003, 0.0004, 0.0005, 0.0006, 0.0007, 0.0008, 0.0009, 0.001, 0.002]:
+        calculate_pair_generation_rate_vec = np.vectorize(calculate_pair_generation_rate)
+        R_signal, R_idler = calculate_pair_generation_rate_vec(x, 0, thetap, omegas + omegai, omegai, omegas, a)
+        print(f"R_signal: {R_signal}")
+
+        z1 = R_signal
+        z2 = R_idler
+
+        plt.plot(x, z1, label=a)
+   # plt.plot(x, z2)
 #    plt.plot(x, np.abs(z1 + z2)**2)
-  
+    plt.legend()
     plt.title( "BBO crystal entangled photons" ) 
     plt.show() 
  
