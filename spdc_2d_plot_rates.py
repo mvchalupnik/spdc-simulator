@@ -52,7 +52,7 @@ def monte_carlo_integration_position(f, dq, dr, num_samples=1):
     func_values = np.zeros(num_samples, dtype='complex128') # Technically won't be complex here
     for n in range(num_samples): # can simplify?
         x_sample = dr# x_samples[n] 0.00025 when integrating to 1 mm
-        y_sample = 0#y_samples[n]
+        y_sample = 0 #0#y_samples[n]
         g = functools.partial(f, x_pos_integrate=x_sample, y_pos_integrate=y_sample)
         func_values[n] = monte_carlo_integration_momentum(g, dq)
 
@@ -121,6 +121,7 @@ def phase_matching(delta_k, L):
     :param delta_k: Change in wave vector k
     :param L: Length of crystal in meters
     """
+    delta_k = 0
     return L * np.sinc(delta_k * L / 2) * np.exp(1j * delta_k * L / 2)
 
 def alpha(thetap, lambdap):
@@ -209,7 +210,7 @@ def pump_function(qpx, qpy, kp, omega):
     qp_abs = np.sqrt(qpx**2 + qpy**2)
     d = 107.8e-2 # pg 15
     w0 = 388e-6 # beam waist in meters, page 8
-    V = np.exp(-qp_abs**2 * w0**2 / 4) * np.exp(-1j * qp_abs**2 * d / (2 * kp)) # times a phase
+    V = np.exp(-qp_abs**2 * w0**2 / 4) * np.exp(-1j * qp_abs**2 * d / (2 * kp))
     return V
 
 def calculate_pair_generation_rate(x_pos, y_pos, thetap, omegap, omegai, omegas, dr):
@@ -250,8 +251,8 @@ def calculate_pair_generation_rate(x_pos, y_pos, thetap, omegap, omegai, omegas,
 
         qs_dot_rhos = (qsx * xs_pos + qsy * ys_pos)
         qi_dot_rhoi = (qix * xi_pos + qiy * yi_pos)
-        qs_abs = np.abs(qsx**2 + qsy**2)
-        qi_abs = np.abs(qix**2 + qiy**2)
+        qs_abs = np.sqrt(qsx**2 + qsy**2)
+        qi_abs = np.sqrt(qix**2 + qiy**2)
 
         integrand = np.exp(1j * (ks + ki) * z_pos) * pump_function(qix + qsx, qiy + qsy, kpz, omegap) * phase_matching(delta_k_type_1(qsx, qix, qsy, qiy, thetap, omegap, omegai, omegas), crystal_length) * \
         np.exp(1j * (qs_dot_rhos + qi_dot_rhoi - qs_abs**2 * z_pos / (2 * ks) - qi_abs**2 * z_pos / (2 * ki)))
@@ -259,6 +260,8 @@ def calculate_pair_generation_rate(x_pos, y_pos, thetap, omegap, omegai, omegas,
         # Asymmetry may be happening because the paraxial approximation does not hold anymore. Need to look at higher
         # order terms to check this. Physically, asymmetry in real space does not make sense here.
 
+        integrand = np.exp(1j * (ks + ki) * z_pos) * pump_function(qix + qsx, qiy + qsy, kpz, omegap) * phase_matching(delta_k_type_1(qsx, qix, qsy, qiy, thetap, omegap, omegai, omegas), crystal_length) * \
+        np.exp(1j * (-qs_dot_rhos - qi_dot_rhoi + qs_abs**2 * z_pos / (2 * ks) + qi_abs**2 * z_pos / (2 * ki)))
 
         # Use ks = something dependent on qsx, qsy????
 
@@ -279,26 +282,33 @@ def calculate_pair_generation_rate(x_pos, y_pos, thetap, omegap, omegai, omegas,
     dqsx = (omegas / C)*0.0014 # 
     dqsy = (omegas / C)*0.0014 # ? Guess
 
-    x = np.linspace(-dqix, dqix, 1000)
-    y = np.linspace(-dqiy, dqiy, 1000)
-    X, Y = np.meshgrid(x, y)
-    ##Momentum must be conserved, so qix = -qsx and qiy = -qiy?
-    ##(Assume qpx and qpy negligible? Though they appear in the expression for the pump beam)
-#    Z = np.abs(rate_integrand(X, Y, X, Y))
-    # print("test1")
-    # print(np.abs(rate_integrand(X, Y, -X, -Y)))
-    # print("test2")
-    # print(np.abs(rate_integrand(X, Y, X, Y)))
- #  Z = np.abs(rate_integrand(X, Y, -X, -Y, 0, 0, "signal")) # To look at total integrand, and phase matching function (look at abs or real part of integrand)
- #   Z = np.abs(rate_integrand(X, Y, -X, -Y, 0.001, 0, "signal")) # To look at pump beam, phase matching function, and e^i q.rho part of integral
-  #  Z = np.real(rate_integrand(-X, -Y, -X, -Y, 0, 0, "signal")) +  np.real(rate_integrand(X, Y, X, Y, 0, 0, "signal")) # To look at pump beam, phase matching function, and e^i q.rho part of integral
-    Z = np.real(rate_integrand(-X, -Y, -X, -Y, .001, 0, "signal")) - np.real(rate_integrand(-X, -Y, -X, -Y, -.001, 0, "signal")) # To look at pump beam, phase matching function, and e^i q.rho part of integral
+    dqix = (omegai / C)*0.0017 # ?enclose circle in momentum space
+    dqiy = (omegai / C)*0.0017 # 0.014 to enclose, 0.003 to run
+    dqsx = (omegas / C)*0.0017 # 
+    dqsy = (omegas / C)*0.0017 # ? Guess
 
-    # Z = np.abs(rate_integrand(X, Y))
-    plt.imshow(Z, extent=(x.min(), x.max(), y.min(), y.max()), origin='lower', cmap='gray')
-    plt.xlabel("qx")
-    plt.ylabel("qy")
-    import pdb; pdb.set_trace()
+#     x = np.linspace(-dqix, dqix, 1000)
+#     y = np.linspace(-dqiy, dqiy, 1000)
+#     X, Y = np.meshgrid(x, y)
+#     ##Momentum must be conserved, so qix = -qsx and qiy = -qiy?
+#     ##(Assume qpx and qpy negligible? Though they appear in the expression for the pump beam)
+# #    Z = np.abs(rate_integrand(X, Y, X, Y))
+#     # print("test1")
+#     # print(np.abs(rate_integrand(X, Y, -X, -Y)))
+#     # print("test2")
+#     # print(np.abs(rate_integrand(X, Y, X, Y)))
+#  #  Z = np.abs(rate_integrand(X, Y, -X, -Y, 0, 0, "signal")) # To look at total integrand, and phase matching function (look at abs or real part of integrand)
+#  #   Z = np.abs(rate_integrand(X, Y, -X, -Y, 0.001, 0, "signal")) # To look at pump beam, phase matching function, and e^i q.rho part of integral
+#   #  Z = np.real(rate_integrand(-X, -Y, -X, -Y, 0, 0, "signal")) +  np.real(rate_integrand(X, Y, X, Y, 0, 0, "signal")) # To look at pump beam, phase matching function, and e^i q.rho part of integral
+#     Z = np.real(rate_integrand(-X, -Y, -X, -Y, .001, 0, "signal")) - np.real(rate_integrand(-X, -Y, -X, -Y, -.001, 0, "signal")) # To look at pump beam, phase matching function, and e^i q.rho part of integral
+
+#    # Z = np.imag(rate_integrand(-X, -Y, -X, -Y, .001, 0, "signal")) - np.imag(rate_integrand(-X, -Y, -X, -Y, -.001, 0, "signal")) # To look at pump beam, phase matching function, and e^i q.rho part of integral
+
+#     # Z = np.abs(rate_integrand(X, Y))
+#     plt.imshow(Z, extent=(x.min(), x.max(), y.min(), y.max()), origin='lower', cmap='gray')
+#     plt.xlabel("qx")
+#     plt.ylabel("qy")
+#     import pdb; pdb.set_trace()
 
 
     rate_integrand_signal = functools.partial(rate_integrand, integrate_over="idler")
@@ -337,8 +347,10 @@ def plot_rings():
     x = np.linspace(-span, span, num_points)
     plt.figure(figsize=(8, 6))
     sweep_points = np.arange(-0.0012, 0.0012, 0.0001)
+#    sweep_points = np.arange(-0.003, 0.003, 0.0002)
+
     for a in sweep_points:
-        x = 0 # DEBUG
+      #  x = 0 # DEBUG
         calculate_pair_generation_rate_vec = np.vectorize(calculate_pair_generation_rate)
         R_signal = calculate_pair_generation_rate_vec(x, 0, thetap, omegas + omegai, omegai, omegas, a)
         print(f"R_signal: {R_signal}")
