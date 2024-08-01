@@ -250,21 +250,27 @@ def calculate_pair_generation_rate(x_pos, y_pos, thetap, omegap, omegai, omegas,
 
         qs_dot_rhos = (qsx * xs_pos + qsy * ys_pos)
         qi_dot_rhoi = (qix * xi_pos + qiy * yi_pos)
-        qs_abs = np.sqrt(qsx**2 + qsy**2)
-        qi_abs = np.sqrt(qix**2 + qiy**2)
+        qs_abs = np.abs(qsx**2 + qsy**2)
+        qi_abs = np.abs(qix**2 + qiy**2)
 
-   #     integrand = np.exp(1j * (ks + ki) * z_pos) * pump_function(qix + qsx, qiy + qsy, kpz, omegap) * phase_matching(delta_k_type_1(qsx, qix, qsy, qiy, thetap, omegap, omegai, omegas), crystal_length) * \
-   #     np.exp(1j * (qs_dot_rhos + qi_dot_rhoi - qs_abs**2 * z_pos / (2 * ks) - qi_abs**2 * z_pos / (2 * ki)))
+        integrand = np.exp(1j * (ks + ki) * z_pos) * pump_function(qix + qsx, qiy + qsy, kpz, omegap) * phase_matching(delta_k_type_1(qsx, qix, qsy, qiy, thetap, omegap, omegai, omegas), crystal_length) * \
+        np.exp(1j * (qs_dot_rhos + qi_dot_rhoi - qs_abs**2 * z_pos / (2 * ks) - qi_abs**2 * z_pos / (2 * ki)))
+
+        # Asymmetry may be happening because the paraxial approximation does not hold anymore. Need to look at higher
+        # order terms to check this. Physically, asymmetry in real space does not make sense here.
+
+
+        # Use ks = something dependent on qsx, qsy????
 
     #    integrand = phase_matching(delta_k_type_1(qsx, qix, qsy, qiy, thetap, omegap, omegai, omegas), crystal_length) * \
     #    np.exp(1j * (qs_dot_rhos + qi_dot_rhoi - qs_abs**2 * z_pos / (2 * ks) - qi_abs**2 * z_pos / (2 * ki)))
 
         # DEBUG
         #integrand = pump_function(qix + qsx, qiy + qsy, kpz, omegap)
-      #  integrand = phase_matching(delta_k_type_1(qsx, qix, qsy, qiy, thetap, omegap, omegai, omegas), crystal_length) * pump_function(qix + qsx, qiy + qsy, kpz, omegap)
-        integrand = phase_matching(delta_k_type_1(qsx, qix, qsy, qiy, thetap, omegap, omegai, omegas), crystal_length)
+    #    integrand = phase_matching(delta_k_type_1(qsx, qix, qsy, qiy, thetap, omegap, omegai, omegas), crystal_length) * pump_function(qix + qsx, qiy + qsy, kpz, omegap)
+      #  integrand = phase_matching(delta_k_type_1(qsx, qix, qsy, qiy, thetap, omegap, omegai, omegas), crystal_length)
     #   integrand = delta_k_type_1(qsx, qix, qsy, qiy, thetap, omegap, omegai, omegas)
-       # integrand = np.exp(1j * (qs_dot_rhos + qi_dot_rhoi - qs_abs**2 * z_pos / (2 * ks) - qi_abs**2 * z_pos / (2 * ki)))
+      #  integrand = np.exp(1j * (qs_dot_rhos + qi_dot_rhoi - qs_abs**2 * z_pos / (2 * ks) - qi_abs**2 * z_pos / (2 * ki)))
 
    #     import pdb; pdb.set_trace()
         return integrand
@@ -283,10 +289,10 @@ def calculate_pair_generation_rate(x_pos, y_pos, thetap, omegap, omegai, omegas,
     # print(np.abs(rate_integrand(X, Y, -X, -Y)))
     # print("test2")
     # print(np.abs(rate_integrand(X, Y, X, Y)))
-#    Z = np.abs(rate_integrand(X, Y, -X, -Y, 0, 0, "signal")) # To look at total integrand, and phase matching function (look at abs or real part of integrand)
-  #  Z = np.real(rate_integrand(-X, -Y, -X, -Y, .001, 0, "signal")) # To look at pump beam, phase matching function, and e^i q.rho part of integral
+ #  Z = np.abs(rate_integrand(X, Y, -X, -Y, 0, 0, "signal")) # To look at total integrand, and phase matching function (look at abs or real part of integrand)
+ #   Z = np.abs(rate_integrand(X, Y, -X, -Y, 0.001, 0, "signal")) # To look at pump beam, phase matching function, and e^i q.rho part of integral
   #  Z = np.real(rate_integrand(-X, -Y, -X, -Y, 0, 0, "signal")) +  np.real(rate_integrand(X, Y, X, Y, 0, 0, "signal")) # To look at pump beam, phase matching function, and e^i q.rho part of integral
-    Z = np.real(rate_integrand(-X, -Y, -X, -Y, .001, 0, "signal")) + np.real(rate_integrand(-X, -Y, -X, -Y, -.001, 0, "signal")) # To look at pump beam, phase matching function, and e^i q.rho part of integral
+    Z = np.real(rate_integrand(-X, -Y, -X, -Y, .001, 0, "signal")) - np.real(rate_integrand(-X, -Y, -X, -Y, -.001, 0, "signal")) # To look at pump beam, phase matching function, and e^i q.rho part of integral
 
     # Z = np.abs(rate_integrand(X, Y))
     plt.imshow(Z, extent=(x.min(), x.max(), y.min(), y.max()), origin='lower', cmap='gray')
