@@ -8,10 +8,12 @@ from scipy.stats import qmc
 import functools
 from scipy.stats import norm
 import itertools
+import pickle
+import json
 
 # Constants
-crystal_length = 0.002    # Length of the nonlinear crystal in meters
-C = 2.99792e8 # Speed of light, in meters per second
+crystal_length = 0.002  # Length of the nonlinear crystal in meters
+C = 2.99792e8  # Speed of light, in meters per second
 np.random.seed(1)
 
 def monte_carlo_integration_momentum(f, dq, num_samples=20000):
@@ -176,16 +178,16 @@ def delta_k_type_1(qsx, qix, qsy, qiy, thetap, omegap, omegai, omegas):
     :param qsy: k-vector in the y direction for signal
     :param qiy: k-vector in the y direction for idler
     :param thetap: Angle theta along which pump beam enters BBO crystal (about y-axis)
-    :param omegap: Angular frequency of the pump beam
+    :param omegap: Angular frequency of the pump beam (TODO, overdefined)
     :param omegai: Angular frequency of the idler beam
     :param omegas: Angular frequency of the signal beam
     """
-    lambdas = (2 * np.pi * C) / omegas # ?
-    lambdai = (2 * np.pi * C) / omegai # ?
-    lambdap = (2 * np.pi * C) / omegap # ?
+    lambdas = (2 * np.pi * C) / omegas
+    lambdai = (2 * np.pi * C) / omegai
+    lambdap = (2 * np.pi * C) / omegap
 
-    qpx = qsx + qix # Conservation of momentum?
-    qpy = qsy + qiy # Conservation of momentum?
+    qpx = qsx + qix # Conservation of momentum
+    qpy = qsy + qiy # Conservation of momentum
     qs_abs = np.sqrt(qsx**2 + qsy**2)
     qi_abs = np.sqrt(qix**2 + qiy**2)
 
@@ -212,7 +214,7 @@ def pump_function(qpx, qpy, kp, omega):
     V = np.exp(-qp_abs**2 * w0**2 / 4) * np.exp(-1j * qp_abs**2 * d / (2 * kp))
     return V
 
-def calculate_pair_generation_rate(x_pos, y_pos, thetap, omegap, omegai, omegas, dr):
+def calculate_pair_generation_rate(x_pos, y_pos, thetap, omegai, omegas, dr):
     """
     Return the entangled pair generation rate at location (x, y, z) from the crystal. Equation 84.
 
@@ -225,10 +227,10 @@ def calculate_pair_generation_rate(x_pos, y_pos, thetap, omegap, omegai, omegas,
 
     # z is distance away from crystal along pump propagation direction
     z_pos = 35e-3 # 35 millimeters, page 15
-    ks = omegas / C #
-    ki = omegai / C #
+    ks = omegas / C
+    ki = omegai / C
     kpz = (omegas + omegai) / C # This is on page 8 in the bottom paragraph on the left column
-    omegap = omegas + omegai # This is on page 8 in the bottom paragraph on the left column [NOTE this is also passed in]
+    omegap = omegas + omegai # This is on page 8 in the bottom paragraph on the left column
 
 
     def rate_integrand(qix, qiy, qsx, qsy, x_pos_integrate, y_pos_integrate, integrate_over):
@@ -245,7 +247,7 @@ def calculate_pair_generation_rate(x_pos, y_pos, thetap, omegap, omegai, omegas,
             xi_pos = x_pos_integrate
             yi_pos = y_pos_integrate
         else:
-            # Raise error
+            # Raise error #TODO actually raise error
             print("error")
 
         qs_dot_rhos = (qsx * xs_pos + qsy * ys_pos)
@@ -255,146 +257,236 @@ def calculate_pair_generation_rate(x_pos, y_pos, thetap, omegap, omegai, omegas,
 
         integrand = np.exp(1j * (ks + ki) * z_pos) * pump_function(qix + qsx, qiy + qsy, kpz, omegap) * phase_matching(delta_k_type_1(qsx, qix, qsy, qiy, thetap, omegap, omegai, omegas), crystal_length) * \
         np.exp(1j * (qs_dot_rhos + qi_dot_rhoi - qs_abs**2 * z_pos / (2 * ks) - qi_abs**2 * z_pos / (2 * ki)))
-
-    #    integrand = phase_matching(delta_k_type_1(qsx, qix, qsy, qiy, thetap, omegap, omegai, omegas), crystal_length) * \
-    #    np.exp(1j * (qs_dot_rhos + qi_dot_rhoi - qs_abs**2 * z_pos / (2 * ks) - qi_abs**2 * z_pos / (2 * ki)))
-
-        # DEBUG
-        #integrand = pump_function(qix + qsx, qiy + qsy, kpz, omegap)
-   #     integrand = phase_matching(delta_k_type_1(qsx, qix, qsy, qiy, thetap, omegap, omegai, omegas), crystal_length) * pump_function(qix + qsx, qiy + qsy, kpz, omegap)
-      #  integrand = phase_matching(delta_k_type_1(qsx, qix, qsy, qiy, thetap, omegap, omegai, omegas), crystal_length)
-    #   integrand = delta_k_type_1(qsx, qix, qsy, qiy, thetap, omegap, omegai, omegas)
-      #  integrand = np.exp(1j * (qs_dot_rhos + qi_dot_rhoi - qs_abs**2 * z_pos / (2 * ks) - qi_abs**2 * z_pos / (2 * ki)))
-
-   #     import pdb; pdb.set_trace()
         return integrand
+
     dqix = (omegai / C)*0.0014 # ?enclose circle in momentum space
     dqiy = (omegai / C)*0.0014 # 0.014 to enclose, 0.003 to run
     dqsx = (omegas / C)*0.0014 # 
     dqsy = (omegas / C)*0.0014 # ? Guess
 
-#     x = np.linspace(-dqix, dqix, 1000)
-#     y = np.linspace(-dqiy, dqiy, 1000)
-#     X, Y = np.meshgrid(x, y)
-#     ##Momentum must be conserved, so qix = -qsx and qiy = -qiy?
-#     ##(Assume qpx and qpy negligible? Though they appear in the expression for the pump beam)
-# #    Z = np.abs(rate_integrand(X, Y, X, Y))
-#     # print("test1")
-#     # print(np.abs(rate_integrand(X, Y, -X, -Y)))
-#     # print("test2")
-#     # print(np.abs(rate_integrand(X, Y, X, Y)))
-#  #  Z = np.abs(rate_integrand(X, Y, -X, -Y, 0, 0, "signal")) # To look at total integrand, and phase matching function (look at abs or real part of integrand)
-#     Z = np.real(rate_integrand(X, Y, X, Y, 0, 0, "signal")) # To look at pump beam, phase matching function, and e^i q.rho part of integral
-#   #  Z = np.real(rate_integrand(-X, -Y, -X, -Y, 0, 0, "signal")) +  np.real(rate_integrand(X, Y, X, Y, 0, 0, "signal")) # To look at pump beam, phase matching function, and e^i q.rho part of integral
-#  #   Z = np.real(rate_integrand(-X, -Y, -X, -Y, .001, 0, "signal")) - np.real(rate_integrand(-X, -Y, -X, -Y, -.001, 0, "signal")) # To look at pump beam, phase matching function, and e^i q.rho part of integral
+    x = np.linspace(-dqix, dqix, 1000)
+    y = np.linspace(-dqiy, dqiy, 1000)
+    X, Y = np.meshgrid(x, y)
+    ##Momentum must be conserved, so qix = -qsx and qiy = -qiy?
+    ##(Assume qpx and qpy negligible? Though they appear in the expression for the pump beam)
+#    Z = np.abs(rate_integrand(X, Y, X, Y))
+    # print("test1")
+    # print(np.abs(rate_integrand(X, Y, -X, -Y)))
+    # print("test2")
+    # print(np.abs(rate_integrand(X, Y, X, Y)))
+ #  Z = np.abs(rate_integrand(X, Y, -X, -Y, 0, 0, "signal")) # To look at total integrand, and phase matching function (look at abs or real part of integrand)
+    Z = np.real(rate_integrand(X, Y, X, Y, 0, 0, "signal")) # To look at pump beam, phase matching function, and e^i q.rho part of integral
+  #  Z = np.real(rate_integrand(-X, -Y, -X, -Y, 0, 0, "signal")) +  np.real(rate_integrand(X, Y, X, Y, 0, 0, "signal")) # To look at pump beam, phase matching function, and e^i q.rho part of integral
+ #   Z = np.real(rate_integrand(-X, -Y, -X, -Y, .001, 0, "signal")) - np.real(rate_integrand(-X, -Y, -X, -Y, -.001, 0, "signal")) # To look at pump beam, phase matching function, and e^i q.rho part of integral
 
-#    # Z = np.imag(rate_integrand(-X, -Y, -X, -Y, .001, 0, "signal")) - np.imag(rate_integrand(-X, -Y, -X, -Y, -.001, 0, "signal")) # To look at pump beam, phase matching function, and e^i q.rho part of integral
+   # Z = np.imag(rate_integrand(-X, -Y, -X, -Y, .001, 0, "signal")) - np.imag(rate_integrand(-X, -Y, -X, -Y, -.001, 0, "signal")) # To look at pump beam, phase matching function, and e^i q.rho part of integral
 
-#     # Z = np.abs(rate_integrand(X, Y))
-#     plt.imshow(Z, extent=(x.min(), x.max(), y.min(), y.max()), origin='lower', cmap='gray')
-#     plt.xlabel("qx")
-#     plt.ylabel("qy")
-#     import pdb; pdb.set_trace()
+    # Z = np.abs(rate_integrand(X, Y))
+    plt.imshow(Z, extent=(x.min(), x.max(), y.min(), y.max()), origin='lower', cmap='gray')
+    plt.xlabel("qx")
+    plt.ylabel("qy")
+    import pdb; pdb.set_trace()
 
 
     rate_integrand_signal = functools.partial(rate_integrand, integrate_over="idler")
-    rate_integrand_idler = functools.partial(rate_integrand, integrate_over="signal")
+#    rate_integrand_idler = functools.partial(rate_integrand, integrate_over="signal")
 
     result_signal = monte_carlo_integration_position(rate_integrand_signal, dqix, dr)
   #  result_signal = grid_integration_position(rate_integrand_idler, dqix, dr)
     result_idler = result_signal # (they're the same for type I collinear spdc)
-#    result_idler = monte_carlo_integration_position(rate_integrand_idler, dqix, dr) # comment to debug
 
-#    return result_signal, result_idler
-    return result_signal
+    return result_signal #TODO expand to include type II and also return idler
 
-def plot_rings():
-    """ Plot entangled pair rings. """
+
+def simulate_ring_momentum(simulation_parameters):
+    """
+    Simulate and plot the ring for a plane in momentum space, given fixed (x, y) for signal and fixed (x, y) for idler.
+
+    :param simulation_parameters: A dict containing relevant parameters for running the simulation.    
+    """
+    pass
+
+def simulate_ring_slice(simulation_parameters):
+    """
+    Simulate and plot a slice of the conditional probabilities of detecting the signal photon, 
+    given the idler photon is fixed (with location swept across the x-axis).
+
+    :param simulation_parameters: A dict containing relevant parameters for running the simulation.
+    """
     start_time = time.time()
 
-    pump_wavelength = 405.9e-9 # Pump wavelength in meters
-    down_conversion_wavelength = 811.8e-9
+    num_plot_x_points = simulation_parameters["num_plot_x_points"] #.get
+    x_span = simulation_parameters["x_span"] # Span in the x-direction to plot conditional probability of signal over, in meters
+    thetap = simulation_parameters["thetap"] # Incident pump angle, in Radians
+    omegap = simulation_parameters["omegap"] # Pump frequency (Radians / sec)
+    omegai = simulation_parameters["omegai"] # Idler frequency (Radians / sec)
+    omegas = simulation_parameters["omegas"] # Signal frequency (Radians / sec)
+    idler_span = simulation_parameters["idler_span"] # Span in the x-direction to fix idler at
+    idler_increment = simulation_parameters["idler_increment"] # Increment size to change idler by in the x-direction
 
-    # Set parameters
-    thetap = 28.95 * np.pi / 180
-  #  thetap = 27 * np.pi / 180
+    save_directory = simulation_parameters["save_directory"]
 
-    omegap = (2 * np.pi * C) / pump_wavelength # ?
-    omegai = (2 * np.pi * C) / down_conversion_wavelength # ?
-    omegas = (2 * np.pi * C) / down_conversion_wavelength # ?
-
-    # Plot total output power as a function of theta_p
-    # TODO
-
-    # Plot beam in real space
-    span = 3e-3
-
-    num_points = 100
-    x = np.linspace(-span, span, num_points)
+    x = np.linspace(-x_span, x_span, num_plot_x_points)
     plt.figure(figsize=(8, 6))
-    sweep_points = np.arange(-0.0012, 0.0012, 0.0001)
-#    sweep_points = np.arange(-0.003, 0.003, 0.0002)
+    sweep_points = np.arange(-idler_span, idler_span, idler_increment) #TODO pass in
 
-    for a in sweep_points:
-      #  x = 0 # DEBUG
+    probs = np.zeros([len(sweep_points), len(x)]) # initialize array to save data (check todo)
+    for i, a in enumerate(sweep_points):
         calculate_pair_generation_rate_vec = np.vectorize(calculate_pair_generation_rate)
-        R_signal = calculate_pair_generation_rate_vec(x, 0, thetap, omegas + omegai, omegai, omegas, a)
-        print(f"R_signal: {R_signal}")
-
-        z1 = R_signal
-#        z2 = R_idler
-
+        z1 = calculate_pair_generation_rate_vec(x, 0, thetap=thetap, omegai=omegai, omegas=omegas, dr=a)
+        probs[i] = z1
         plt.plot(x, z1, label=a)
-   # plt.plot(x, z2)
-#    plt.plot(x, np.abs(z1 + z2)**2)
-  #  plt.legend()
-    plt.title( "BBO crystal entangled photons" ) 
+
+    plt.title( "Conditional probability of signal given idler at different locations on x-axis" )
+    # Add legend?
  
     end_time = time.time()
     print(f"Elapsed time: {end_time - start_time}")
+    plt.savefig(f"{save_directory}/rings_slice_{num_plot_x_points}.png", dpi=300)
 
-    plt.show() 
+    #plt.show()
 
-    import pdb; pdb.set_trace()
+    # Save parameters and data
+    with open(f"{save_directory}/ring_slice_{num_plot_x_points}.pkl", "wb") as file:
+        pickle.dump(probs, file)
 
-    ##Create a grid of x and y values
-   ##span = 100e-6 #??
-    span = 2e-3
-    num_points = 6
-    x = np.linspace(-span, span, num_points)
-    y = np.linspace(-span, span, num_points)
+    # Save parameters to a pickled file
+    with open(f"{save_directory}/ring_slice_{num_plot_x_points}_params.pkl", "wb") as file:
+        pickle.dump(simulation_parameters, file)
+
+    # Save parameters to a text file
+    with open(f"{save_directory}/ring_slice_{num_plot_x_points}_params.txt", 'w') as file:
+        file.write(json.dumps(simulation_parameters))
+
+    # Save time to a text file
+    time_info = {"Time Elapsed in seconds" : end_time - start_time}
+    with open(f"{save_directory}/ring_slice_{num_plot_x_points}_time.txt", 'w') as file:
+        file.write(json.dumps(time_info))
+
+
+def simulate_rings(simulation_parameters):
+    """
+    Simulate and plot entangled pair rings by integrating the conditional probability of detecting the signal photon given detecting the 
+    idler photon, integrating over the possible positions of the idler photon. 
+
+    :param simulation_parameters: A dict containing relevant parameters for running the simulation.
+    """
+    start_time = time.time()
+
+    num_plot_x_points = simulation_parameters["num_plot_x_points"] #.get
+    num_plot_y_points = simulation_parameters["num_plot_y_points"]
+    x_span = simulation_parameters["x_span"] # Span in the x-direction to plot over, in meters
+    x_span = simulation_parameters["y_span"] # Span in the y-direction to plot over, in meters
+    thetap = simulation_parameters["thetap"] # Incident pump angle, in Radians
+    omegap = simulation_parameters["omegap"] # Pump frequency (Radians / sec)
+    omegai = simulation_parameters["omegai"] # Idler frequency (Radians / sec)
+    omegas = simulation_parameters["omegas"] # Signal frequency (Radians / sec)
+    momentum_x_span = ... # Extent of span to integrate in momentum space over (fraction of omega / C)
+    momentum_y_span = ...
+    num_momentum_integration_points = ... # Number of points to integrate over in momentum space
+    grid_integration_size = ... # Size of square root of grid for integration in real space
+    pump_waist_size = ... # Size of pump beam waist
+    pump_waist_distance = ... # Distance of pump waist from crystal (meters)
+    z_pos = ... # View location in the z direction, from crystal (meters)
+    crystal_length = ... # Length of the crystal, in meters
+
+
+
+    num_cores = simulation_parameters["simulation_cores"] # Number of cores to use in the simulation
+    save_directory = simulation_parameters["save_directory"]
+
+    # Create a grid of x and y values
+    x = np.linspace(-x_span, x_span, num_plot_x_points)
+    y = np.linspace(-y_span, y_span, num_plot_y_points)
     X, Y = np.meshgrid(x, y)
 
     calculate_pair_generation_rate_vec = np.vectorize(calculate_pair_generation_rate)
-    #Z1, Z2 = calculate_pair_generation_rate_vec(X, Y, thetap, omegap, omegai, omegas, span)
 
-    parallel_calculate = functools.partial(calculate_pair_generation_rate_vec, thetap=thetap, omegap=omegap, omegai=omegai, omegas=omegas, dr=span)
-    Z1 = Parallel(n_jobs=4)(delayed(parallel_calculate)(xi, yi) for xi in x for yi in y)
-    Z = np.reshape(np.array(Z1), [num_points, num_points]).T
-
-#    Z = calculate_pair_generation_rate(x=4e-6, y=0, thetap=thetap, omegap=omegap, omegai=omegai, omegas=omegas)
+    # Run calculate_pair_generation_rate in parallel
+    parallel_calculate = functools.partial(calculate_pair_generation_rate_vec, thetap=thetap, omegai=omegai, omegas=omegas, dr=span)
+    Z1 = Parallel(n_jobs=num_cores)(delayed(parallel_calculate)(xi, yi) for xi in x for yi in y)
+    Z = np.reshape(np.array(Z1), [num_plot_y_points, num_plot_x_points]).T #TODO test this
 
     end_time = time.time()
+
     print(f"Elapsed time: {end_time - start_time}")
 
+    # Plot results
     plt.figure(figsize=(8, 6))
     plt.imshow(np.abs(Z), extent=(x.min(), x.max(), y.min(), y.max()), origin='lower', cmap='gray')
-    plt.xlabel("x")
-    plt.ylabel("y")
+    plt.xlabel("x (m)")
+    plt.ylabel("y (m)")
 
-    plt.title( "BBO crystal entangled photons" ) 
-    plt.show()
+    plt.title( "BBO crystal entangled photons rates" ) 
+    plt.savefig(f"{save_directory}/rings_{num_plot_x_points}_{num_plot_y_points}.png", dpi=300)
 
-    # Todo, plot conditional probability
-    # Todo, momentum space plot
+    # Save data to a pickled file
+    with open(f"{save_directory}/rings_{num_plot_x_points}_{num_plot_y_points}.pkl", "wb") as file:
+        pickle.dump(Z, file)
 
-    # todo, type 2 noncollinear
+    # Save parameters to a pickled file
+    with open(f"{save_directory}/rings_{num_plot_x_points}_{num_plot_y_points}_params.pkl", "wb") as file:
+        pickle.dump(simulation_parameters, file)
+
+    # Save parameters to a text file
+    with open(f"{save_directory}/rings_{num_plot_x_points}_{num_plot_y_points}_params.txt", 'w') as file:
+        file.write(json.dumps(simulation_parameters))
+
+    # Save time to a text file
+    time_info = {"Time Elapsed in seconds" : end_time - start_time}
+    with open(f"{save_directory}/rings_{num_plot_x_points}_{num_plot_y_points}_time.txt", 'w') as file:
+        file.write(json.dumps(time_info))
+
+    #plt.show()
+
+
+# Todo, momentum space plot
+
+# todo, type 2 noncollinear
+
+# Plot total output power as a function of theta_p and other params
+# TODO
+
 
 def main():
     """ main function """
     print("Hello world")
-    plot_rings()
+
+    pump_wavelength = 405.9e-9 # Pump wavelength in meters
+    down_conversion_wavelength = 811.8e-9 # Wavelength of down-converted photons in meters
+    thetap = 28.95 * np.pi / 180
+
+    simulation_parameters = {
+        "num_plot_x_points": 100,
+        "thetap": thetap,
+        "omegap": (2 * np.pi * C) / pump_wavelength,
+        "omegai": (2 * np.pi * C) / down_conversion_wavelength,
+        "omegas": (2 * np.pi * C) / down_conversion_wavelength,
+        "x_span": 3e-3,
+        "idler_span": 0.0012,
+        "idler_increment": 0.0001,
+
+        "save_directory": ""
+    }
+
+    simulate_ring_slice(simulation_parameters=simulation_parameters)
+
+
+    simulation_parameters = {
+        "num_plot_x_points": 6,
+        "num_plot_y_points": 6,
+        "thetap": thetap,
+        "omegap": (2 * np.pi * C) / pump_wavelength,
+        "omegai": (2 * np.pi * C) / down_conversion_wavelength,
+        "omegas": (2 * np.pi * C) / down_conversion_wavelength,
+        "x_span": 2e-3,
+        "y_span": 2e-3,
+        "simulation_cores": 4,
+        "save_directory": ""
+    }
+    simulate_rings(simulation_parameters=simulation_parameters)
+    # Todo, create folder in specified directory with date, etc. For now just save.
 
 
 if __name__=="__main__": 
-    main() 
+    main()
