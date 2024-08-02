@@ -177,7 +177,6 @@ def pump_function(qpx, qpy, kp, omega):
     :param qpy: k-vector in the y direction for pump
     :param kp: k-vector in the z direction for pump
     :param omega: Pump frequency
-    :param d: Location of interest some distance behind the crystal
     """
     qp_abs = np.sqrt(qpx**2 + qpy**2)
     V = np.exp(-qp_abs**2 * w0**2 / 4) * np.exp(-1j * qp_abs**2 * d / (2 * kp))
@@ -388,8 +387,6 @@ def simulate_rings(simulation_parameters):
     pump_waist_distance = ... # Distance of pump waist from crystal (meters)
     z_pos = ... # View location in the z direction, from crystal (meters)
     crystal_length = ... # Length of the crystal, in meters
-
-
 
     num_cores = simulation_parameters["simulation_cores"] # Number of cores to use in the simulation
     save_directory = simulation_parameters["save_directory"]
