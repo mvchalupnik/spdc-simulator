@@ -42,32 +42,6 @@ def monte_carlo_integration_momentum(f, dq, num_samples=20000):
     
     return integral_estimate_sq
 
-
-def monte_carlo_integration_position(f, dq, dr, num_samples=1):
-    # Generate random samples within the bounds [-dr, dr] for each variable
-    # x_samples = np.random.uniform(-dr, dr, num_samples)
-    # y_samples = np.random.uniform(-dr, dr, num_samples)
-
-    # Evaluate the function at each sample point
-    func_values = np.zeros(num_samples, dtype='complex128') # Technically won't be complex here
-    for n in range(num_samples): # can simplify?
-        x_sample = dr# x_samples[n] 0.00025 when integrating to 1 mm
-        y_sample = 0 #0#y_samples[n]
-        g = functools.partial(f, x_pos_integrate=x_sample, y_pos_integrate=y_sample)
-        func_values[n] = monte_carlo_integration_momentum(g, dq)
-
-    # Calculate the average value of the function
-    avg_value = np.mean(func_values)
-    
-    # The volume of the integration region
-    volume = (2 * dr)**2
-    
-    # Estimate the integral as the average value times the volume
-    integral_estimate = avg_value * volume
-    
-    return integral_estimate
-
-
 def grid_integration_position(f, dq, dr, num_samples=6):
     """
     Integrate along x and y. First pass function to be integrated along four dimensions
@@ -209,20 +183,9 @@ def pump_function(qpx, qpy, kp, omega):
     V = np.exp(-qp_abs**2 * w0**2 / 4) * np.exp(-1j * qp_abs**2 * d / (2 * kp))
     return V
 
-def get_rate_integrand(x_pos, y_pos, thetap, omegai, omegas, dr):
+def get_rate_integrand(x_pos, y_pos, thetap, omegai, omegas, dr, simulation_parameters):
     """
     Return the integrand used to calculate rates and conditional probabilities
-    """
-    
-
-def calculate_pair_generation_rate(x_pos, y_pos, thetap, omegai, omegas, dr):
-    """
-    Return the entangled pair generation rate at location (x, y, z) from the crystal. Equation 84.
-
-    :param x_pos: Location of signal (idler) photon in the x direction a distance z away from the crystal
-    :param y_pos: Location of signal (idler) photon in the y direction a distance z away from the crystal
-    :param dr: One half the area of real space centered around the origin which the signal and idler
-        will be integrated over.
     """
     # Also can multiply by detector efficiencies, and a constant dependent on epsilon_0 and chi_2
 
@@ -231,7 +194,7 @@ def calculate_pair_generation_rate(x_pos, y_pos, thetap, omegai, omegas, dr):
     ki = omegai / C
     kpz = (omegas + omegai) / C # This is on page 8 in the bottom paragraph on the left column
     omegap = omegas + omegai # This is on page 8 in the bottom paragraph on the left column
-
+    momentum_span = simulation_parameters.get("momentum_span")
 
     def rate_integrand(qix, qiy, qsx, qsy, x_pos_integrate, y_pos_integrate, integrate_over):
         if integrate_over == "signal":
@@ -259,11 +222,57 @@ def calculate_pair_generation_rate(x_pos, y_pos, thetap, omegai, omegas, dr):
         np.exp(1j * (qs_dot_rhos + qi_dot_rhoi - qs_abs**2 * z_pos / (2 * ks) - qi_abs**2 * z_pos / (2 * ki)))
         return integrand
 
-    dqix = (omegai / C)*0.0014 # ?enclose circle in momentum space
-    dqiy = (omegai / C)*0.0014 # 0.014 to enclose, 0.003 to run
-    dqsx = (omegas / C)*0.0014 # 
-    dqsy = (omegas / C)*0.0014 # ? Guess
+    dqix = (omegai / C) * momentum_span
+    dqiy = (omegai / C) * momentum_span
+    dqsx = (omegas / C) * momentum_span
+    dqsy = (omegas / C) * momentum_span
 
+    return rate_integrand # Returning a function?
+
+
+def calculate_conditional_probability(x_pos, y_pos, thetap, omegai, omegas, dr):
+    """
+    Return the entangled pair generation rate at location (x, y, z) from the crystal. Equation 84.
+
+    :param x_pos: Location of signal (idler) photon in the x direction a distance z away from the crystal
+    :param y_pos: Location of signal (idler) photon in the y direction a distance z away from the crystal
+    :param dr: One half the area of real space centered around the origin which the signal and idler
+        will be integrated over.
+    """
+    x_sample = dr
+    y_sample = 0
+    rate_integrand = get_rate_integrand(x_pos, y_pos, thetap, omegai, omegas, dr, simulation_parameters)
+    rate_integrand_signal = functools.partial(rate_integrand, integrate_over="idler", x_pos_integrate=x_sample, y_pos_integrate=y_sample)
+
+    result_signal = monte_carlo_integration_momentum(f=rate_integrand_signal, dq=dqix, num_samples=num_samples)
+
+    return result_signal #TODO expand to include type II and also return idler
+
+
+def calculate_pair_generation_rate(x_pos, y_pos, thetap, omegai, omegas, dr):
+    """
+    Return the entangled pair generation rate at location (x, y, z) from the crystal. Equation 84.
+
+    :param x_pos: Location of signal (idler) photon in the x direction a distance z away from the crystal
+    :param y_pos: Location of signal (idler) photon in the y direction a distance z away from the crystal
+    :param dr: One half the area of real space centered around the origin which the signal and idler
+        will be integrated over.
+    """
+    rate_integrand = get_rate_integrand(x_pos, y_pos, thetap, omegai, omegas, dr, simulation_parameters)
+    rate_integrand_signal = functools.partial(rate_integrand, integrate_over="idler")
+#    rate_integrand_idler = functools.partial(rate_integrand, integrate_over="signal")
+
+    result_signal = monte_carlo_integration_position(rate_integrand_signal, dqix, dr)
+
+    return result_signal #TODO expand to include type II and also return idler
+
+
+def simulate_ring_momentum(simulation_parameters):
+    """
+    Simulate and plot the ring for a plane in momentum space, given fixed (x, y) for signal and fixed (x, y) for idler.
+
+    :param simulation_parameters: A dict containing relevant parameters for running the simulation.    
+    """
     x = np.linspace(-dqix, dqix, 1000)
     y = np.linspace(-dqiy, dqiy, 1000)
     X, Y = np.meshgrid(x, y)
@@ -285,26 +294,7 @@ def calculate_pair_generation_rate(x_pos, y_pos, thetap, omegai, omegas, dr):
     plt.imshow(Z, extent=(x.min(), x.max(), y.min(), y.max()), origin='lower', cmap='gray')
     plt.xlabel("qx")
     plt.ylabel("qy")
-    import pdb; pdb.set_trace()
 
-
-    rate_integrand_signal = functools.partial(rate_integrand, integrate_over="idler")
-#    rate_integrand_idler = functools.partial(rate_integrand, integrate_over="signal")
-
-    result_signal = monte_carlo_integration_position(rate_integrand_signal, dqix, dr)
-  #  result_signal = grid_integration_position(rate_integrand_idler, dqix, dr)
-    result_idler = result_signal # (they're the same for type I collinear spdc)
-
-    return result_signal #TODO expand to include type II and also return idler
-
-
-def simulate_ring_momentum(simulation_parameters):
-    """
-    Simulate and plot the ring for a plane in momentum space, given fixed (x, y) for signal and fixed (x, y) for idler.
-
-    :param simulation_parameters: A dict containing relevant parameters for running the simulation.    
-    """
-    pass
 
 def simulate_ring_slice(simulation_parameters):
     """
@@ -312,6 +302,7 @@ def simulate_ring_slice(simulation_parameters):
     given the idler photon is fixed (with location swept across the x-axis).
 
     :param simulation_parameters: A dict containing relevant parameters for running the simulation.
+    TODO use kwargs instead of a dict!
     """
     start_time = time.time()
 
@@ -389,7 +380,7 @@ def simulate_rings(simulation_parameters):
     omegap = simulation_parameters["omegap"] # Pump frequency (Radians / sec)
     omegai = simulation_parameters["omegai"] # Idler frequency (Radians / sec)
     omegas = simulation_parameters["omegas"] # Signal frequency (Radians / sec)
-    momentum_x_span = ... # Extent of span to integrate in momentum space over (fraction of omega / C)
+    momentum_span = ... # Extent of span to integrate in momentum space over across x axis and in y axis for both signal and idler (fraction of omega / C)
     momentum_y_span = ...
     num_momentum_integration_points = ... # Number of points to integrate over in momentum space
     grid_integration_size = ... # Size of square root of grid for integration in real space
@@ -478,8 +469,7 @@ def main():
         "x_span": 3e-3,
         "idler_span": 0.0012,
         "idler_increment": 0.0001,
-        "momentum_x_span": 0.0014,
-        "momentum_y_span": 0.0014,
+        "momentum_span": 0.0014,
         "num_momentum_integration_points": 20000,
         "idler_y_pos": 0,
         "signal_y_pos": 0,
@@ -503,8 +493,7 @@ def main():
         "omegas": (2 * np.pi * C) / down_conversion_wavelength,
         "x_span": 2e-3,
         "y_span": 2e-3,
-        "momentum_x_span": 0.0014,
-        "momentum_y_span": 0.0014,
+        "momentum_span": 0.0014,
         "num_momentum_integration_points": 20000,
         "grid_integration_size": 6,
         "pump_waist_size": w0,
