@@ -12,9 +12,7 @@ import pickle
 import json
 
 # Constants
-crystal_length = 0.002  # Length of the nonlinear crystal in meters
 C = 2.99792e8  # Speed of light, in meters per second
-np.random.seed(1)
 
 def monte_carlo_integration_momentum(f, dq, num_samples=20000):
     """
@@ -203,16 +201,19 @@ def pump_function(qpx, qpy, kp, omega):
 
     :param qpx: k-vector in the x direction for pump
     :param qpy: k-vector in the y direction for pump
-    :param kp: k-vector in the z direction for pump (with paraxial approximation, this is approx the total k-vector in the
-        place where it is used?)
+    :param kp: k-vector in the z direction for pump
     :param omega: Pump frequency
     :param d: Location of interest some distance behind the crystal
     """
     qp_abs = np.sqrt(qpx**2 + qpy**2)
-    d = 107.8e-2 # pg 15
-    w0 = 388e-6 # beam waist in meters, page 8
     V = np.exp(-qp_abs**2 * w0**2 / 4) * np.exp(-1j * qp_abs**2 * d / (2 * kp))
     return V
+
+def get_rate_integrand(x_pos, y_pos, thetap, omegai, omegas, dr):
+    """
+    Return the integrand used to calculate rates and conditional probabilities
+    """
+    
 
 def calculate_pair_generation_rate(x_pos, y_pos, thetap, omegai, omegas, dr):
     """
@@ -226,7 +227,6 @@ def calculate_pair_generation_rate(x_pos, y_pos, thetap, omegai, omegas, dr):
     # Also can multiply by detector efficiencies, and a constant dependent on epsilon_0 and chi_2
 
     # z is distance away from crystal along pump propagation direction
-    z_pos = 35e-3 # 35 millimeters, page 15
     ks = omegas / C
     ki = omegai / C
     kpz = (omegas + omegai) / C # This is on page 8 in the bottom paragraph on the left column
@@ -323,17 +323,21 @@ def simulate_ring_slice(simulation_parameters):
     omegas = simulation_parameters["omegas"] # Signal frequency (Radians / sec)
     idler_span = simulation_parameters["idler_span"] # Span in the x-direction to fix idler at
     idler_increment = simulation_parameters["idler_increment"] # Increment size to change idler by in the x-direction
+    signal_y_pos = simulation_parameters["signal_y_pos"]
 
     save_directory = simulation_parameters["save_directory"]
+    seed = simulation_parameters["random_seed"]
+
+    np.random.seed(seed)
 
     x = np.linspace(-x_span, x_span, num_plot_x_points)
     plt.figure(figsize=(8, 6))
     sweep_points = np.arange(-idler_span, idler_span, idler_increment) #TODO pass in
 
     probs = np.zeros([len(sweep_points), len(x)]) # initialize array to save data (check todo)
-    for i, a in enumerate(sweep_points):
+    for i, idler_x_pos in enumerate(sweep_points):
         calculate_pair_generation_rate_vec = np.vectorize(calculate_pair_generation_rate)
-        z1 = calculate_pair_generation_rate_vec(x, 0, thetap=thetap, omegai=omegai, omegas=omegas, dr=a)
+        z1 = calculate_pair_generation_rate_vec(x, signal_y_pos, thetap=thetap, omegai=omegai, omegas=omegas, dr=idler_x_pos) # TODO use a diff function
         probs[i] = z1
         plt.plot(x, z1, label=a)
 
@@ -372,6 +376,10 @@ def simulate_rings(simulation_parameters):
     :param simulation_parameters: A dict containing relevant parameters for running the simulation.
     """
     start_time = time.time()
+
+    seed = simulation_parameters["random_seed"]
+
+    np.random.seed(seed)
 
     num_plot_x_points = simulation_parameters["num_plot_x_points"] #.get
     num_plot_y_points = simulation_parameters["num_plot_y_points"]
@@ -456,6 +464,11 @@ def main():
     down_conversion_wavelength = 811.8e-9 # Wavelength of down-converted photons in meters
     thetap = 28.95 * np.pi / 180
 
+    w0 = 388e-6 # beam waist in meters, page 8
+    d = 107.8e-2 # pg 15
+    z_pos = 35e-3 # 35 millimeters, page 15
+    crystal_length = 0.002  # Length of the nonlinear crystal in meters
+
     simulation_parameters = {
         "num_plot_x_points": 100,
         "thetap": thetap,
@@ -465,8 +478,17 @@ def main():
         "x_span": 3e-3,
         "idler_span": 0.0012,
         "idler_increment": 0.0001,
-
-        "save_directory": ""
+        "momentum_x_span": 0.0014,
+        "momentum_y_span": 0.0014,
+        "num_momentum_integration_points": 20000,
+        "idler_y_pos": 0,
+        "signal_y_pos": 0,
+        "pump_waist_size": w0,
+        "pump_waist_distance": d,
+        "z_pos": z_pos,
+        "crystal_length": crystal_length,
+        "save_directory": "",
+        "random_seed": 1
     }
 
     simulate_ring_slice(simulation_parameters=simulation_parameters)
@@ -481,9 +503,19 @@ def main():
         "omegas": (2 * np.pi * C) / down_conversion_wavelength,
         "x_span": 2e-3,
         "y_span": 2e-3,
+        "momentum_x_span": 0.0014,
+        "momentum_y_span": 0.0014,
+        "num_momentum_integration_points": 20000,
+        "grid_integration_size": 6,
+        "pump_waist_size": w0,
+        "pump_waist_distance": d,
+        "z_pos": z_pos,
+        "crystal_length": crystal_length,
         "simulation_cores": 4,
-        "save_directory": ""
+        "save_directory": "",
+        "random_seed": 1
     }
+
     simulate_rings(simulation_parameters=simulation_parameters)
     # Todo, create folder in specified directory with date, etc. For now just save.
 
