@@ -5,14 +5,14 @@ import os
 
 def get_current_time():
     """Return current time as a string."""
-    return datetime.now().strftime('%H-%M-%S_')
+    return datetime.now().strftime('%H-%M-%S')
 
 def create_directory(data_directory_path: str, subfolder_name: str = None):
     """
     Create a new directory if directory for the current day does not exist.
 
     :param data_directory_path: The path to the new directory.
-    :param subfolder_name: The name subfolder in the directory
+    :param subfolder_name: The name of an optional subfolder to create in the directory and save data within.
 
     :return dir_string: The path to the created directory, including subfolder if applied
     """
