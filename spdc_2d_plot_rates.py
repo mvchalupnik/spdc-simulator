@@ -15,29 +15,6 @@ from file_utils import get_current_time, create_directory
 # Constants
 C = 2.99792e8  # Speed of light, in meters per second
 
-# def monte_carlo_integration_position(f, dq, dr, num_samples=1):
-#     # Generate random samples within the bounds [-dr, dr] for each variable
-#     # x_samples = np.random.uniform(-dr, dr, num_samples)
-#     # y_samples = np.random.uniform(-dr, dr, num_samples)
-
-#     # Evaluate the function at each sample point
-#     func_values = np.zeros(num_samples, dtype='complex128') # Technically won't be complex here
-#     x_sample = dr# x_samples[n] 0.00025 when integrating to 1 mm
-#     y_sample = 0 #0#y_samples[n]
-#     g = functools.partial(f, x_pos_integrate=x_sample, y_pos_integrate=y_sample)
-#     func_values[0] = monte_carlo_integration_momentum(g, dq)
-
-#     # Calculate the average value of the function
-#     avg_value = np.mean(func_values)
-    
-#     # The volume of the integration region
-#     volume = (2 * dr)**2
-    
-#     # Estimate the integral as the average value times the volume
-#     integral_estimate = avg_value * volume
-    
-#     return func_values[0]
-
 def monte_carlo_integration_momentum(f, dq, num_samples=20000):
     """
     Integrate function `f` using the Monte Carlo method along four dimensions of momentum,
@@ -337,10 +314,22 @@ def simulate_ring_momentum(simulation_parameters):
     x = np.linspace(-dqix, dqix, num_plot_qx_points)
     y = np.linspace(-dqiy, dqiy, num_plot_qy_points)
     X, Y = np.meshgrid(x, y)
-    Z = np.real(rate_integrand(X, Y, X, Y, idler_x_pos, idler_y_pos, "signal"))
-    plt.imshow(Z, extent=(x.min(), x.max(), y.min(), y.max()), origin='lower', cmap='gray')
-    plt.xlabel("$q_x$ ($q_{xi} = q_{xs}$)")
-    plt.ylabel("$q_y$ ($q_{yi} = q_{ys}$)")
+    Z = rate_integrand(X, Y, X, Y, idler_x_pos, idler_y_pos, "signal")
+    fig, (ax1, ax2) = plt.subplots(1, 2)
+    ax1.imshow(np.abs(Z), extent=(x.min(), x.max(), y.min(), y.max()), origin='lower', cmap='gray')
+    ax1.set_title("Abs(Integrand)")
+    ax1.set_xlabel("$q_x$ ($q_{xi} = q_{xs}$) (Rad/m)")
+    ax1.set_ylabel("$q_y$ ($q_{yi} = q_{ys}$) (Rad/m)")
+    ax1.tick_params(axis='both', labelsize=4)
+
+    x = np.linspace(-dqix, dqix, num_plot_qx_points)
+    y = np.linspace(-dqiy, dqiy, num_plot_qy_points)
+    X, Y = np.meshgrid(x, y)
+    Z = rate_integrand(X, Y, -X, -Y, idler_x_pos, idler_y_pos, "signal")
+    ax2.imshow(np.real(Z), extent=(x.min(), x.max(), y.min(), y.max()), origin='lower', cmap='gray')
+    ax2.set_title("Re(Integrand)")
+    ax2.set_xlabel("$q_x$ ($q_{xi} = q_{xs}$) (Rad/m)")
+    ax2.tick_params(axis='both', labelsize=4)
 
     # Get current time for file name
     time_str = get_current_time()
@@ -396,7 +385,7 @@ def simulate_ring_slice(simulation_parameters):
         probs[i] = z1
         plt.plot(x, z1, label=idler_x_pos)
     plt.title( "Conditional probability of signal given idler at different locations on x-axis" )
-    plt.legend()
+ #   plt.legend()
  
     end_time = time.time()
     print(f"Elapsed time: {end_time - start_time}")
@@ -540,7 +529,7 @@ def main():
         "signal_y_pos": 0,
         "idler_x_pos": 0,
         "idler_y_pos": 0,
-        "momentum_span": 0.0014,
+        "momentum_span": 0.014,
         "pump_waist_size": w0,
         "pump_waist_distance": d,
         "z_pos": z_pos,
@@ -558,8 +547,8 @@ def main():
         "omegai": (2 * np.pi * C) / down_conversion_wavelength,
         "omegas": (2 * np.pi * C) / down_conversion_wavelength,
         "x_span": 3e-3,
-        "idler_x_span": 0.0012,
-        "idler_x_increment": 0.0001,
+        "idler_x_span": 0.003,
+        "idler_x_increment": 0.0002,
         "momentum_span": 0.014,
         "num_momentum_integration_points": 20000,
         "idler_y_pos": 0,
@@ -575,6 +564,52 @@ def main():
     simulate_ring_slice(simulation_parameters=simulation_parameters)
 
 
+    simulation_parameters = {
+        "num_plot_x_points": 100,
+        "thetap": thetap,
+        "omegap": (2 * np.pi * C) / pump_wavelength,
+        "omegai": (2 * np.pi * C) / down_conversion_wavelength,
+        "omegas": (2 * np.pi * C) / down_conversion_wavelength,
+        "x_span": 3e-3,
+        "idler_x_span": 0.003,
+        "idler_x_increment": 0.0002,
+        "momentum_span": 0.014,
+        "num_momentum_integration_points": 200000,
+        "idler_y_pos": 0,
+        "signal_y_pos": 0,
+        "pump_waist_size": w0,
+        "pump_waist_distance": d,
+        "z_pos": z_pos,
+        "crystal_length": crystal_length,
+        "save_directory": dir_string,
+        "random_seed": 1
+    }
+
+    simulate_ring_slice(simulation_parameters=simulation_parameters)
+
+
+    simulation_parameters = {
+        "num_plot_x_points": 100,
+        "thetap": thetap,
+        "omegap": (2 * np.pi * C) / pump_wavelength,
+        "omegai": (2 * np.pi * C) / down_conversion_wavelength,
+        "omegas": (2 * np.pi * C) / down_conversion_wavelength,
+        "x_span": 3e-3,
+        "idler_x_span": 0.003,
+        "idler_x_increment": 0.0002,
+        "momentum_span": 0.014,
+        "num_momentum_integration_points": 2000000,
+        "idler_y_pos": 0,
+        "signal_y_pos": 0,
+        "pump_waist_size": w0,
+        "pump_waist_distance": d,
+        "z_pos": z_pos,
+        "crystal_length": crystal_length,
+        "save_directory": dir_string,
+        "random_seed": 1
+    }
+
+    simulate_ring_slice(simulation_parameters=simulation_parameters)
     simulation_parameters = {
         "num_plot_x_points": 6,
         "num_plot_y_points": 6,
