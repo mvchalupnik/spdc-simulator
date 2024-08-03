@@ -77,8 +77,8 @@ def n_o(wavelength):
     
     :param wavelength: Wavelength of light entering the crystal.
     """
-    lambda_sq = wavelength**2
-    return np.sqrt(np.abs(2.7405 + 0.0184 / (lambda_sq - 0.0179) - 0.0155 * lambda_sq))
+    lambda_sq_in_microns = (wavelength*10**6)**2
+    return np.sqrt(np.abs(2.7405 + 0.0184 / (lambda_sq_in_microns - 0.0179) - 0.0155 * lambda_sq_in_microns))
 
 def n_e(wavelength):
     """
@@ -86,8 +86,8 @@ def n_e(wavelength):
 
     :param wavelength: Wavelength of light entering the crystal.
     """
-    lambda_sq = wavelength**2
-    return np.sqrt(np.abs(2.3730 + 0.0128 / (lambda_sq - 0.0156) - 0.0044 * lambda_sq))
+    lambda_sq_in_microns = (wavelength*10**6)**2
+    return np.sqrt(np.abs(2.3730 + 0.0128 / (lambda_sq_in_microns - 0.0156) - 0.0044 * lambda_sq_in_microns))
 
 def phase_matching(delta_k, L):
     """
@@ -534,7 +534,7 @@ def main():
     pump_wavelength = 405e-9# 405.9e-9 # Pump wavelength in meters
     down_conversion_wavelength = 810e-9# 811.8e-9 # Wavelength of down-converted photons in meters
     thetap = 28.95 * np.pi / 180
-   # thetap = 0 * np.pi / 180
+    #thetap = 0 * np.pi / 180
 
     w0 = 388e-6 # beam waist in meters, page 8
     d = 107.8e-2 # pg 15
@@ -552,7 +552,7 @@ def main():
         "signal_y_pos": 0,
         "idler_x_pos": 0,
         "idler_y_pos": 0,
-        "momentum_span": 0.0014,
+        "momentum_span": 0.1,
         "pump_waist_size": w0,
         "pump_waist_distance": d,
         "z_pos": z_pos,
@@ -561,7 +561,6 @@ def main():
     }
 
     simulate_ring_momentum(simulation_parameters=simulation_parameters)
-    import pdb; pdb.set_trace()
 
     simulation_parameters = {
         "num_plot_x_points": 100,
@@ -572,7 +571,7 @@ def main():
         "x_span": 3e-3,
         "idler_x_span": 0.003,
         "idler_x_increment": 0.0002,
-        "momentum_span": 0.0014,
+        "momentum_span": 0.014,
         "num_momentum_integration_points": 20000,
         "idler_y_pos": 0,
         "signal_y_pos": 0,
@@ -586,6 +585,7 @@ def main():
 
     simulate_ring_slice(simulation_parameters=simulation_parameters)
 
+    import pdb; pdb.set_trace()
 
     simulation_parameters = {
         "num_plot_x_points": 100,
