@@ -311,25 +311,40 @@ def simulate_ring_momentum(simulation_parameters):
 
     rate_integrand = get_rate_integrand(signal_x_pos, signal_y_pos, thetap, omegai, omegas, simulation_parameters)
 
+    fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2)
+
     x = np.linspace(-dqix, dqix, num_plot_qx_points)
     y = np.linspace(-dqiy, dqiy, num_plot_qy_points)
     X, Y = np.meshgrid(x, y)
     Z = rate_integrand(X, Y, X, Y, idler_x_pos, idler_y_pos, "signal")
-    fig, (ax1, ax2) = plt.subplots(1, 2)
+
     ax1.imshow(np.abs(Z), extent=(x.min(), x.max(), y.min(), y.max()), origin='lower', cmap='gray')
     ax1.set_title("Abs(Integrand)")
     ax1.set_xlabel("$q_x$ ($q_{xi} = q_{xs}$) (Rad/m)")
     ax1.set_ylabel("$q_y$ ($q_{yi} = q_{ys}$) (Rad/m)")
     ax1.tick_params(axis='both', labelsize=4)
 
+    ax2.imshow(np.real(Z), extent=(x.min(), x.max(), y.min(), y.max()), origin='lower', cmap='gray')
+    ax2.set_title("Re(Integrand)")
+    ax2.set_xlabel("$q_x$ ($q_{xi} = q_{xs}$) (Rad/m)")
+    ax2.set_ylabel("$q_y$ ($q_{yi} = q_{ys}$) (Rad/m)")
+    ax2.tick_params(axis='both', labelsize=4)
+
     x = np.linspace(-dqix, dqix, num_plot_qx_points)
     y = np.linspace(-dqiy, dqiy, num_plot_qy_points)
     X, Y = np.meshgrid(x, y)
     Z = rate_integrand(X, Y, -X, -Y, idler_x_pos, idler_y_pos, "signal")
-    ax2.imshow(np.real(Z), extent=(x.min(), x.max(), y.min(), y.max()), origin='lower', cmap='gray')
-    ax2.set_title("Re(Integrand)")
-    ax2.set_xlabel("$q_x$ ($q_{xi} = q_{xs}$) (Rad/m)")
-    ax2.tick_params(axis='both', labelsize=4)
+    ax3.imshow(np.abs(Z), extent=(x.min(), x.max(), y.min(), y.max()), origin='lower', cmap='gray')
+    ax3.set_xlabel("$q_x$ ($q_{xi} = -q_{xs}$) (Rad/m)")
+    ax3.set_ylabel("$q_y$ ($q_{yi} = -q_{ys}$) (Rad/m)")
+    ax3.tick_params(axis='both', labelsize=4)
+
+    ax4.imshow(np.real(Z), extent=(x.min(), x.max(), y.min(), y.max()), origin='lower', cmap='gray')
+    ax4.set_xlabel("$q_x$ ($q_{xi} = -q_{xs}$) (Rad/m)")
+    ax4.set_ylabel("$q_y$ ($q_{yi} = -q_{ys}$) (Rad/m)")
+    ax4.tick_params(axis='both', labelsize=4)
+
+    plt.tight_layout()
 
     # Get current time for file name
     time_str = get_current_time()
