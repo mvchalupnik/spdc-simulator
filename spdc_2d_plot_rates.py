@@ -318,31 +318,43 @@ def simulate_ring_momentum(simulation_parameters):
     X, Y = np.meshgrid(x, y)
     Z = rate_integrand(X, Y, X, Y, idler_x_pos, idler_y_pos, "signal")
 
-    ax1.imshow(np.abs(Z), extent=(x.min(), x.max(), y.min(), y.max()), origin='lower', cmap='gray')
+    im1 = ax1.imshow(np.abs(Z), extent=(x.min(), x.max(), y.min(), y.max()), origin='lower', cmap='gray')
     ax1.set_title("Abs(Integrand)")
     ax1.set_xlabel("$q_x$ ($q_{xi} = q_{xs}$) (Rad/m)")
     ax1.set_ylabel("$q_y$ ($q_{yi} = q_{ys}$) (Rad/m)")
     ax1.tick_params(axis='both', labelsize=4)
+    cb1 = fig.colorbar(im1, ax=ax1, location='right', shrink=0.6)
+    cb1.ax.tick_params(labelsize=4)
+    cb1.ax.yaxis.offsetText.set_fontsize(4)
 
-    ax2.imshow(np.real(Z), extent=(x.min(), x.max(), y.min(), y.max()), origin='lower', cmap='gray')
+    im2 = ax2.imshow(np.real(Z), extent=(x.min(), x.max(), y.min(), y.max()), origin='lower', cmap='jet')
     ax2.set_title("Re(Integrand)")
     ax2.set_xlabel("$q_x$ ($q_{xi} = q_{xs}$) (Rad/m)")
     ax2.set_ylabel("$q_y$ ($q_{yi} = q_{ys}$) (Rad/m)")
     ax2.tick_params(axis='both', labelsize=4)
+    cb2 = fig.colorbar(im2, ax=ax2, location='right', shrink=0.6)
+    cb2.ax.tick_params(labelsize=4)
+    cb2.ax.yaxis.offsetText.set_fontsize(4)
 
     x = np.linspace(-dqix, dqix, num_plot_qx_points)
     y = np.linspace(-dqiy, dqiy, num_plot_qy_points)
     X, Y = np.meshgrid(x, y)
     Z = rate_integrand(X, Y, -X, -Y, idler_x_pos, idler_y_pos, "signal")
-    ax3.imshow(np.abs(Z), extent=(x.min(), x.max(), y.min(), y.max()), origin='lower', cmap='gray')
+    im3 = ax3.imshow(np.abs(Z), extent=(x.min(), x.max(), y.min(), y.max()), origin='lower', cmap='gray')
     ax3.set_xlabel("$q_x$ ($q_{xi} = -q_{xs}$) (Rad/m)")
     ax3.set_ylabel("$q_y$ ($q_{yi} = -q_{ys}$) (Rad/m)")
     ax3.tick_params(axis='both', labelsize=4)
+    cb3 = fig.colorbar(im3, ax=ax3, location='right', shrink=0.6)
+    cb3.ax.tick_params(labelsize=4)
+    cb3.ax.yaxis.offsetText.set_fontsize(4)
 
-    ax4.imshow(np.real(Z), extent=(x.min(), x.max(), y.min(), y.max()), origin='lower', cmap='gray')
+    im4 = ax4.imshow(np.real(Z), extent=(x.min(), x.max(), y.min(), y.max()), origin='lower', cmap='jet')
     ax4.set_xlabel("$q_x$ ($q_{xi} = -q_{xs}$) (Rad/m)")
     ax4.set_ylabel("$q_y$ ($q_{yi} = -q_{ys}$) (Rad/m)")
     ax4.tick_params(axis='both', labelsize=4)
+    cb4 = fig.colorbar(im4, ax=ax4, location='right', shrink=0.6)
+    cb4.ax.tick_params(labelsize=4)
+    cb4.ax.yaxis.offsetText.set_fontsize(4)
 
     plt.tight_layout()
 
@@ -350,10 +362,6 @@ def simulate_ring_momentum(simulation_parameters):
     time_str = get_current_time()
 
     plt.savefig(f"{save_directory}/{time_str}_momentum.png", dpi=300)
-
-    # Save parameters and data
-    with open(f"{save_directory}/{time_str}_momentum.pkl", "wb") as file:
-        pickle.dump(Z, file)
 
     # Save parameters to a pickled file
     with open(f"{save_directory}/{time_str}_momentum_params.pkl", "wb") as file:
@@ -526,7 +534,7 @@ def main():
     pump_wavelength = 405e-9# 405.9e-9 # Pump wavelength in meters
     down_conversion_wavelength = 810e-9# 811.8e-9 # Wavelength of down-converted photons in meters
     thetap = 28.95 * np.pi / 180
-#    thetap = 0 * np.pi / 180
+   # thetap = 0 * np.pi / 180
 
     w0 = 388e-6 # beam waist in meters, page 8
     d = 107.8e-2 # pg 15
@@ -544,7 +552,7 @@ def main():
         "signal_y_pos": 0,
         "idler_x_pos": 0,
         "idler_y_pos": 0,
-        "momentum_span": 0.014,
+        "momentum_span": 0.0014,
         "pump_waist_size": w0,
         "pump_waist_distance": d,
         "z_pos": z_pos,
@@ -553,7 +561,7 @@ def main():
     }
 
     simulate_ring_momentum(simulation_parameters=simulation_parameters)
-
+    import pdb; pdb.set_trace()
 
     simulation_parameters = {
         "num_plot_x_points": 100,
@@ -564,7 +572,7 @@ def main():
         "x_span": 3e-3,
         "idler_x_span": 0.003,
         "idler_x_increment": 0.0002,
-        "momentum_span": 0.014,
+        "momentum_span": 0.0014,
         "num_momentum_integration_points": 20000,
         "idler_y_pos": 0,
         "signal_y_pos": 0,
@@ -588,7 +596,7 @@ def main():
         "x_span": 3e-3,
         "idler_x_span": 0.003,
         "idler_x_increment": 0.0002,
-        "momentum_span": 0.014,
+        "momentum_span": 0.0014,
         "num_momentum_integration_points": 200000,
         "idler_y_pos": 0,
         "signal_y_pos": 0,
@@ -612,7 +620,7 @@ def main():
         "x_span": 3e-3,
         "idler_x_span": 0.003,
         "idler_x_increment": 0.0002,
-        "momentum_span": 0.014,
+        "momentum_span": 0.0014,
         "num_momentum_integration_points": 2000000,
         "idler_y_pos": 0,
         "signal_y_pos": 0,
