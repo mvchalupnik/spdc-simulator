@@ -10,6 +10,7 @@ from scipy.stats import norm
 import itertools
 import pickle
 import json
+from file_utils import get_current_time, create_directory 
 
 # Constants
 C = 2.99792e8  # Speed of light, in meters per second
@@ -170,7 +171,7 @@ def delta_k_type_1(qsx, qix, qsy, qiy, thetap, omegap, omegai, omegas):
 
     return delta_k
 
-def pump_function(qpx, qpy, kp, omega):
+def pump_function(qpx, qpy, kp, omega, w0, d):
     """ Function for the Gaussian pump beam. (equation 31)
 
     :param qpx: k-vector in the x direction for pump
@@ -182,7 +183,7 @@ def pump_function(qpx, qpy, kp, omega):
     V = np.exp(-qp_abs**2 * w0**2 / 4) * np.exp(-1j * qp_abs**2 * d / (2 * kp))
     return V
 
-def get_rate_integrand(x_pos, y_pos, thetap, omegai, omegas, dr, simulation_parameters):
+def get_rate_integrand(x_pos, y_pos, thetap, omegai, omegas, simulation_parameters):
     """
     Return the integrand used to calculate rates and conditional probabilities
     """
@@ -193,10 +194,14 @@ def get_rate_integrand(x_pos, y_pos, thetap, omegai, omegas, dr, simulation_para
     ki = omegai / C
     kpz = (omegas + omegai) / C # This is on page 8 in the bottom paragraph on the left column
     omegap = omegas + omegai # This is on page 8 in the bottom paragraph on the left column
-    momentum_span = simulation_parameters.get("momentum_span")
+#    momentum_span = simulation_parameters.get("momentum_span")
+    z_pos = simulation_parameters["z_pos"]
+    w0 = simulation_parameters["pump_waist_size"]
+    d = simulation_parameters["pump_waist_distance"]
+    crystal_length = simulation_parameters["crystal_length"]
 
     def rate_integrand(qix, qiy, qsx, qsy, x_pos_integrate, y_pos_integrate, integrate_over):
-        if integrate_over == "signal":
+        if integrate_over == "signal": # TODO fix to be less confusing
             # Fix idler, integrate over signal
             xs_pos = x_pos_integrate
             ys_pos = y_pos_integrate
@@ -217,14 +222,14 @@ def get_rate_integrand(x_pos, y_pos, thetap, omegai, omegas, dr, simulation_para
         qs_abs = np.sqrt(qsx**2 + qsy**2)
         qi_abs = np.sqrt(qix**2 + qiy**2)
 
-        integrand = np.exp(1j * (ks + ki) * z_pos) * pump_function(qix + qsx, qiy + qsy, kpz, omegap) * phase_matching(delta_k_type_1(qsx, qix, qsy, qiy, thetap, omegap, omegai, omegas), crystal_length) * \
+        integrand = np.exp(1j * (ks + ki) * z_pos) * pump_function(qix + qsx, qiy + qsy, kpz, omegap, w0, d) * phase_matching(delta_k_type_1(qsx, qix, qsy, qiy, thetap, omegap, omegai, omegas), crystal_length) * \
         np.exp(1j * (qs_dot_rhos + qi_dot_rhoi - qs_abs**2 * z_pos / (2 * ks) - qi_abs**2 * z_pos / (2 * ki)))
         return integrand
 
-    dqix = (omegai / C) * momentum_span
-    dqiy = (omegai / C) * momentum_span
-    dqsx = (omegas / C) * momentum_span
-    dqsy = (omegas / C) * momentum_span
+    # dqix = (omegai / C) * momentum_span
+    # dqiy = (omegai / C) * momentum_span
+    # dqsx = (omegas / C) * momentum_span
+    # dqsy = (omegas / C) * momentum_span
 
     return rate_integrand # Returning a function?
 
@@ -240,10 +245,16 @@ def calculate_conditional_probability(x_pos, y_pos, thetap, omegai, omegas, dr):
     """
     x_sample = dr
     y_sample = 0
-    rate_integrand = get_rate_integrand(x_pos, y_pos, thetap, omegai, omegas, dr, simulation_parameters)
+    momentum_span = simulation_parameters.get("momentum_span")
+    dqi = (omegai / C) * momentum_span
+
+    # dqsx = (omegas / C) * momentum_span
+    # dqsy = (omegas / C) * momentum_span
+
+    rate_integrand = get_rate_integrand(x_pos, y_pos, thetap, omegai, omegas, simulation_parameters)
     rate_integrand_signal = functools.partial(rate_integrand, integrate_over="idler", x_pos_integrate=x_sample, y_pos_integrate=y_sample)
 
-    result_signal = monte_carlo_integration_momentum(f=rate_integrand_signal, dq=dqix, num_samples=num_samples)
+    result_signal = monte_carlo_integration_momentum(f=rate_integrand_signal, dq=dqi, num_samples=num_samples) # TODO expand to integrate over signal
 
     return result_signal #TODO expand to include type II and also return idler
 
@@ -257,11 +268,14 @@ def calculate_pair_generation_rate(x_pos, y_pos, thetap, omegai, omegas, dr):
     :param dr: One half the area of real space centered around the origin which the signal and idler
         will be integrated over.
     """
-    rate_integrand = get_rate_integrand(x_pos, y_pos, thetap, omegai, omegas, dr, simulation_parameters)
+    momentum_span = simulation_parameters.get("momentum_span")
+    dqi = (omegai / C) * momentum_span
+
+    rate_integrand = get_rate_integrand(x_pos, y_pos, thetap, omegai, omegas, simulation_parameters)
     rate_integrand_signal = functools.partial(rate_integrand, integrate_over="idler")
 #    rate_integrand_idler = functools.partial(rate_integrand, integrate_over="signal")
 
-    result_signal = monte_carlo_integration_position(rate_integrand_signal, dqix, dr)
+    result_signal = monte_carlo_integration_position(rate_integrand_signal, dqi, dr)
 
     return result_signal #TODO expand to include type II and also return idler
 
@@ -272,8 +286,31 @@ def simulate_ring_momentum(simulation_parameters):
 
     :param simulation_parameters: A dict containing relevant parameters for running the simulation.    
     """
-    x = np.linspace(-dqix, dqix, 1000)
-    y = np.linspace(-dqiy, dqiy, 1000)
+    num_plot_qx_points = simulation_parameters["num_plot_qx_points"]
+    num_plot_qy_points = simulation_parameters["num_plot_qy_points"]
+
+    thetap = simulation_parameters["thetap"] # Incident pump angle, in Radians
+    omegap = simulation_parameters["omegap"] # Pump frequency (Radians / sec)
+    omegai = simulation_parameters["omegai"] # Idler frequency (Radians / sec)
+    omegas = simulation_parameters["omegas"] # Signal frequency (Radians / sec)
+    momentum_span = simulation_parameters["momentum_span"]
+    signal_x_pos = simulation_parameters["signal_x_pos"]
+    signal_y_pos = simulation_parameters["signal_y_pos"]
+    idler_x_pos = simulation_parameters["idler_x_pos"]
+    idler_y_pos = simulation_parameters["idler_y_pos"]
+    z_pos = simulation_parameters["z_pos"]
+ 
+    save_directory = simulation_parameters["save_directory"]
+
+    dqix = (omegai / C) * momentum_span
+    dqiy = (omegai / C) * momentum_span
+    dqsx = (omegas / C) * momentum_span
+    dqsy = (omegas / C) * momentum_span
+
+    rate_integrand = get_rate_integrand(signal_x_pos, signal_y_pos, thetap, omegai, omegas, simulation_parameters)
+
+    x = np.linspace(-dqix, dqix, num_plot_qx_points)
+    y = np.linspace(-dqiy, dqiy, num_plot_qy_points)
     X, Y = np.meshgrid(x, y)
     ##Momentum must be conserved, so qix = -qsx and qiy = -qiy?
     ##(Assume qpx and qpy negligible? Though they appear in the expression for the pump beam)
@@ -294,6 +331,24 @@ def simulate_ring_momentum(simulation_parameters):
     plt.xlabel("qx")
     plt.ylabel("qy")
 
+    # Get current time for file name
+    time_str = get_current_time()
+
+    plt.savefig(f"{save_directory}/{time_str}_momentum.png", dpi=300)
+
+
+    # Save parameters and data
+    with open(f"{save_directory}/{time_str}_momentum.pkl", "wb") as file:
+        pickle.dump(Z, file)
+
+    # Save parameters to a pickled file
+    with open(f"{save_directory}/{time_str}_momentum_params.pkl", "wb") as file:
+        pickle.dump(simulation_parameters, file)
+
+    # Save parameters to a text file
+    with open(f"{save_directory}/{time_str}_momentum_params.txt", 'w') as file:
+        file.write(json.dumps(simulation_parameters))
+
 
 def simulate_ring_slice(simulation_parameters):
     """
@@ -311,8 +366,8 @@ def simulate_ring_slice(simulation_parameters):
     omegap = simulation_parameters["omegap"] # Pump frequency (Radians / sec)
     omegai = simulation_parameters["omegai"] # Idler frequency (Radians / sec)
     omegas = simulation_parameters["omegas"] # Signal frequency (Radians / sec)
-    idler_span = simulation_parameters["idler_span"] # Span in the x-direction to fix idler at
-    idler_increment = simulation_parameters["idler_increment"] # Increment size to change idler by in the x-direction
+    idler_x_span = simulation_parameters["idler_x_span"] # Span in the x-direction to fix idler at
+    idler_x_increment = simulation_parameters["idler_x_increment"] # Increment size to change idler by in the x-direction
     signal_y_pos = simulation_parameters["signal_y_pos"]
 
     save_directory = simulation_parameters["save_directory"]
@@ -322,7 +377,7 @@ def simulate_ring_slice(simulation_parameters):
 
     x = np.linspace(-x_span, x_span, num_plot_x_points)
     plt.figure(figsize=(8, 6))
-    sweep_points = np.arange(-idler_span, idler_span, idler_increment) #TODO pass in
+    sweep_points = np.arange(-idler_x_span, idler_x_span, idler_x_increment) #TODO pass in
 
     probs = np.zeros([len(sweep_points), len(x)]) # initialize array to save data (check todo)
     for i, idler_x_pos in enumerate(sweep_points):
@@ -336,25 +391,29 @@ def simulate_ring_slice(simulation_parameters):
  
     end_time = time.time()
     print(f"Elapsed time: {end_time - start_time}")
-    plt.savefig(f"{save_directory}/rings_slice_{num_plot_x_points}.png", dpi=300)
+
+    # Get current time for file name
+    time_str = get_current_time()
+
+    plt.savefig(f"{save_directory}/{time_str}_rings_slice.png", dpi=300)
 
     #plt.show()
 
     # Save parameters and data
-    with open(f"{save_directory}/ring_slice_{num_plot_x_points}.pkl", "wb") as file:
+    with open(f"{save_directory}/{time_str}_ring_slice.pkl", "wb") as file:
         pickle.dump(probs, file)
 
     # Save parameters to a pickled file
-    with open(f"{save_directory}/ring_slice_{num_plot_x_points}_params.pkl", "wb") as file:
+    with open(f"{save_directory}/{time_str}_ring_slice_params.pkl", "wb") as file:
         pickle.dump(simulation_parameters, file)
 
     # Save parameters to a text file
-    with open(f"{save_directory}/ring_slice_{num_plot_x_points}_params.txt", 'w') as file:
+    with open(f"{save_directory}/{time_str}_ring_slice_params.txt", 'w') as file:
         file.write(json.dumps(simulation_parameters))
 
     # Save time to a text file
     time_info = {"Time Elapsed in seconds" : end_time - start_time}
-    with open(f"{save_directory}/ring_slice_{num_plot_x_points}_time.txt", 'w') as file:
+    with open(f"{save_directory}/{time_str}_ring_slice_{num_plot_x_points}_time.txt", 'w') as file:
         file.write(json.dumps(time_info))
 
 
@@ -379,14 +438,13 @@ def simulate_rings(simulation_parameters):
     omegap = simulation_parameters["omegap"] # Pump frequency (Radians / sec)
     omegai = simulation_parameters["omegai"] # Idler frequency (Radians / sec)
     omegas = simulation_parameters["omegas"] # Signal frequency (Radians / sec)
-    momentum_span = ... # Extent of span to integrate in momentum space over across x axis and in y axis for both signal and idler (fraction of omega / C)
-    momentum_y_span = ...
-    num_momentum_integration_points = ... # Number of points to integrate over in momentum space
-    grid_integration_size = ... # Size of square root of grid for integration in real space
-    pump_waist_size = ... # Size of pump beam waist
-    pump_waist_distance = ... # Distance of pump waist from crystal (meters)
-    z_pos = ... # View location in the z direction, from crystal (meters)
-    crystal_length = ... # Length of the crystal, in meters
+    momentum_span = simulation_parameters["momentum_span"] # Extent of span to integrate in momentum space over across x axis and in y axis for both signal and idler (fraction of omega / C)
+    num_momentum_integration_points = simulation_parameters["num_momentum_integration_points"]  # Number of points to integrate over in momentum space
+    grid_integration_size = simulation_parameters["grid_integration_size"] # Size of square root of grid for integration in real space
+    pump_waist_size = simulation_parameters["pump_waist_size"] # Size of pump beam waist
+    pump_waist_distance = simulation_parameters["pump_waist_distance"] # Distance of pump waist from crystal (meters)
+    z_pos = simulation_parameters["z_pos"] # View location in the z direction, from crystal (meters)
+    crystal_length = simulation_parameters["crystal_length"] # Length of the crystal, in meters
 
     num_cores = simulation_parameters["simulation_cores"] # Number of cores to use in the simulation
     save_directory = simulation_parameters["save_directory"]
@@ -407,30 +465,33 @@ def simulate_rings(simulation_parameters):
 
     print(f"Elapsed time: {end_time - start_time}")
 
+    # Get current time for file name
+    time_str = get_current_time()
+
     # Plot results
     plt.figure(figsize=(8, 6))
     plt.imshow(np.abs(Z), extent=(x.min(), x.max(), y.min(), y.max()), origin='lower', cmap='gray')
     plt.xlabel("x (m)")
     plt.ylabel("y (m)")
 
-    plt.title( "BBO crystal entangled photons rates" ) 
-    plt.savefig(f"{save_directory}/rings_{num_plot_x_points}_{num_plot_y_points}.png", dpi=300)
+    plt.title( "BBO crystal entangled photons rates" )
+    plt.savefig(f"{save_directory}/{time_str}_rings.png", dpi=300)    
 
     # Save data to a pickled file
-    with open(f"{save_directory}/rings_{num_plot_x_points}_{num_plot_y_points}.pkl", "wb") as file:
+    with open(f"{save_directory}/{time_str}_rings.pkl", "wb") as file:
         pickle.dump(Z, file)
 
     # Save parameters to a pickled file
-    with open(f"{save_directory}/rings_{num_plot_x_points}_{num_plot_y_points}_params.pkl", "wb") as file:
+    with open(f"{save_directory}/{time_str}_rings_params.pkl", "wb") as file:
         pickle.dump(simulation_parameters, file)
 
     # Save parameters to a text file
-    with open(f"{save_directory}/rings_{num_plot_x_points}_{num_plot_y_points}_params.txt", 'w') as file:
+    with open(f"{save_directory}/{time_str}_rings_params.txt", 'w') as file:
         file.write(json.dumps(simulation_parameters))
 
     # Save time to a text file
     time_info = {"Time Elapsed in seconds" : end_time - start_time}
-    with open(f"{save_directory}/rings_{num_plot_x_points}_{num_plot_y_points}_time.txt", 'w') as file:
+    with open(f"{save_directory}/{time_str}_rings_time.txt", 'w') as file:
         file.write(json.dumps(time_info))
 
     #plt.show()
@@ -447,6 +508,7 @@ def simulate_rings(simulation_parameters):
 def main():
     """ main function """
     print("Hello world")
+    dir_string = create_directory(data_directory_path="plots")
 
     pump_wavelength = 405.9e-9 # Pump wavelength in meters
     down_conversion_wavelength = 811.8e-9 # Wavelength of down-converted photons in meters
@@ -456,6 +518,28 @@ def main():
     d = 107.8e-2 # pg 15
     z_pos = 35e-3 # 35 millimeters, page 15
     crystal_length = 0.002  # Length of the nonlinear crystal in meters
+
+    simulation_parameters = {
+        "num_plot_qx_points": 1000,
+        "num_plot_qy_points": 1000,
+        "thetap": thetap,
+        "omegap": (2 * np.pi * C) / pump_wavelength,
+        "omegai": (2 * np.pi * C) / down_conversion_wavelength,
+        "omegas": (2 * np.pi * C) / down_conversion_wavelength,
+        "signal_x_pos": 0,
+        "signal_y_pos": 0,
+        "idler_x_pos": 0,
+        "idler_y_pos": 0,
+        "momentum_span": 0.0014,
+        "pump_waist_size": w0,
+        "pump_waist_distance": d,
+        "z_pos": z_pos,
+        "crystal_length": crystal_length,
+        "save_directory": dir_string,
+    }
+
+    simulate_ring_momentum(simulation_parameters=simulation_parameters)
+
 
     simulation_parameters = {
         "num_plot_x_points": 100,
@@ -474,7 +558,7 @@ def main():
         "pump_waist_distance": d,
         "z_pos": z_pos,
         "crystal_length": crystal_length,
-        "save_directory": "",
+        "save_directory": dir_string,
         "random_seed": 1
     }
 
@@ -498,7 +582,7 @@ def main():
         "z_pos": z_pos,
         "crystal_length": crystal_length,
         "simulation_cores": 4,
-        "save_directory": "",
+        "save_directory": dir_string,
         "random_seed": 1
     }
 
