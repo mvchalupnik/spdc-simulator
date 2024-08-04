@@ -15,16 +15,16 @@ from file_utils import get_current_time, create_directory
 # Constants
 C = 2.99792e8  # Speed of light, in meters per second
 
-def monte_carlo_integration_momentum(f, dq, num_samples=20000):
+def monte_carlo_integration_momentum(f, dqsx, dqsy, dqix, dqiy, num_samples):
     """
     Integrate function `f` using the Monte Carlo method along four dimensions of momentum,
     qx, qy for both the signal and idler photons.
     """
     ## Generate random samples within the bounds [-dq, dq] for each variable
-    qix_samples = np.random.uniform(-dq, dq, num_samples)
-    qiy_samples = np.random.uniform(-dq, dq, num_samples)
-    qsx_samples = np.random.uniform(-dq, dq, num_samples)
-    qsy_samples = np.random.uniform(-dq, dq, num_samples)
+    qix_samples = np.random.uniform(-dqix, dqix, num_samples)
+    qiy_samples = np.random.uniform(-dqiy, dqiy, num_samples)
+    qsx_samples = np.random.uniform(-dqsx, dqsx, num_samples)
+    qsy_samples = np.random.uniform(-dqsy, dqsy, num_samples)
 
     # Evaluate the function at each sample point
     func_values = f(qix_samples, qiy_samples, qsx_samples, qsy_samples)
@@ -33,7 +33,7 @@ def monte_carlo_integration_momentum(f, dq, num_samples=20000):
     avg_value = np.mean(func_values)
     
     # The volume of the integration region
-    volume = (2 * dq)**4
+    volume = (2 * dqix) * (2 * dqiy) * (2 * dqsx) * (2 * dqsy)
     
     # Estimate the integral as the average value times the volume
     integral_estimate = avg_value * volume
@@ -43,14 +43,14 @@ def monte_carlo_integration_momentum(f, dq, num_samples=20000):
     
     return integral_estimate_sq
 
-def grid_integration_position(f, dq, dr, num_samples=6):
+def grid_integration_position(f, dqsx, dqsy, dqix, dqiy, dx, dy, num_samples):
     """
     Integrate along x and y. First pass function to be integrated along four dimensions
-    of momentum. 
+    of momentum (signal qx and qy, idler qx and qy).
     """
     # Generate from a grid samples within the bounds [-dr, dr] for each variable
-    x_samples = np.linspace(-dr, dr, num_samples)
-    y_samples = np.linspace(-dr, dr, num_samples)
+    x_samples = np.linspace(-dx, dx, num_samples)
+    y_samples = np.linspace(-dy, dy, num_samples)
     coord_pairs = list(itertools.product(x_samples, y_samples))
 
     # Evaluate the function at each sample point
@@ -58,13 +58,13 @@ def grid_integration_position(f, dq, dr, num_samples=6):
     for n in range(len(coord_pairs)):
         x_sample, y_sample = coord_pairs[n]
         g = functools.partial(f, x_pos_integrate=x_sample, y_pos_integrate=y_sample)
-        func_values[n] = monte_carlo_integration_momentum(g, dq)
+        func_values[n] = monte_carlo_integration_momentum(g, dqsx, dqsy, dqix, dqiy, num_samples)
 
     # Calculate the average value of the function
     avg_value = np.mean(func_values)
     
     # The volume of the integration region
-    volume = (2 * dr)**2
+    volume = (2 * dx) * (2 * dy)
     
     # Estimate the integral as the average value times the volume
     integral_estimate = avg_value * volume
@@ -214,72 +214,71 @@ def get_rate_integrand(x_pos, y_pos, thetap, omegai, omegas, simulation_paramete
             xi_pos = x_pos_integrate
             yi_pos = y_pos_integrate
         else:
-            # Raise error #TODO actually raise error
-            print("error")
+            raise ValueError(f"Expecting to integrate over signal or idler and received {integrate_over}.")
 
         qs_dot_rhos = (qsx * xs_pos + qsy * ys_pos)
         qi_dot_rhoi = (qix * xi_pos + qiy * yi_pos)
         qs_abs = np.sqrt(qsx**2 + qsy**2)
         qi_abs = np.sqrt(qix**2 + qiy**2)
 
-        integrand = np.exp(1j * (ks + ki) * z_pos) * pump_function(qix + qsx, qiy + qsy, kpz, omegap, w0, d) * phase_matching(delta_k_type_1(qsx, qix, qsy, qiy, thetap, omegap, omegai, omegas), crystal_length) * \
-        np.exp(1j * (qs_dot_rhos + qi_dot_rhoi - qs_abs**2 * z_pos / (2 * ks) - qi_abs**2 * z_pos / (2 * ki)))
+        integrand = np.exp(1j * (ks + ki) * z_pos) * pump_function(qix + qsx, qiy + qsy, kpz, omegap, w0, d) * \
+            phase_matching(delta_k_type_1(qsx, qix, qsy, qiy, thetap, omegap, omegai, omegas), crystal_length) * \
+            np.exp(1j * (qs_dot_rhos + qi_dot_rhoi - qs_abs**2 * z_pos / (2 * ks) - qi_abs**2 * z_pos / (2 * ki)))
         return integrand
 
-    # dqix = (omegai / C) * momentum_span
-    # dqiy = (omegai / C) * momentum_span
-    # dqsx = (omegas / C) * momentum_span
-    # dqsy = (omegas / C) * momentum_span
-
-    return rate_integrand # Returning a function?
+    return rate_integrand
 
 
-def calculate_conditional_probability(x_pos, y_pos, thetap, omegai, omegas, dr, simulation_parameters):
+def calculate_conditional_probability(xs_pos, ys_pos, xi_pos, yi_pos, thetap, omegai, omegas, simulation_parameters):
     """
-    Return the entangled pair generation rate at location (x, y, z) from the crystal. Equation 84.
+    Return the conditional probability of detecting the signal at (xs_pos, ys_pos) given the idler is detected at (xi_pos, yi_pos). Equation 84.
 
-    :param x_pos: Location of signal (idler) photon in the x direction a distance z away from the crystal
-    :param y_pos: Location of signal (idler) photon in the y direction a distance z away from the crystal
-    :param dr: One half the area of real space centered around the origin which the signal and idler
-        will be integrated over.
+    :param xs_pos: Location of signal photon in the x direction a distance z away from the crystal
+    :param ys_pos: Location of signal photon in the y direction a distance z away from the crystal
+    :param xi_pos: Location of idler photon in the x direction a distance z away from the crystal
+    :param yi_pos: Location of idler photon in the y direction a distance z away from the crystal
     """
-    x_sample = dr
-    y_sample = 0 #TODO fix
     momentum_span = simulation_parameters.get("momentum_span")
     num_samples = simulation_parameters["num_momentum_integration_points"]
-    dqi = (omegai / C) * momentum_span
+    dqix = (omegai / C) * momentum_span
+    dqiy = (omegai / C) * momentum_span
+    dqsx = (omegas / C) * momentum_span
+    dqsy = (omegas / C) * momentum_span
 
-    # dqsx = (omegas / C) * momentum_span # May want to incorporate this
-    # dqsy = (omegas / C) * momentum_span
+    rate_integrand = get_rate_integrand(xs_pos, ys_pos, thetap, omegai, omegas, simulation_parameters)
+    rate_integrand_signal = functools.partial(rate_integrand, integrate_over="idler", x_pos_integrate=xi_pos, y_pos_integrate=yi_pos)
+    result_signal = monte_carlo_integration_momentum(f=rate_integrand_signal, dqsx=dqsx, dqsy=dqsy, dqix=dqix, dqiy=dqiy, num_samples=num_samples)
 
-    rate_integrand = get_rate_integrand(x_pos, y_pos, thetap, omegai, omegas, simulation_parameters)
-    rate_integrand_signal = functools.partial(rate_integrand, integrate_over="idler", x_pos_integrate=x_sample, y_pos_integrate=y_sample)
-
-    result_signal = monte_carlo_integration_momentum(f=rate_integrand_signal, dq=dqi, num_samples=num_samples) # TODO expand to integrate over signal
-#    result_signal = monte_carlo_integration_position(f=rate_integrand_signal, dq=dqi, dr=dr) # TODO expand to integrate over signal
+    # TODO right now result_idler will equal result_signal; I think this  is always true but need to check, also given different omegas, omegai
+    # rate_integrand_idler = functools.partial(rate_integrand, integrate_over="signal", x_pos_integrate=xs_pos, y_pos_integrate=ys_pos)
+    # result_idler = monte_carlo_integration_momentum(f=rate_integrand_idler, dqsx=dqsx, dqsy=dqsy, dqix=dqix, dqiy=dqiy, num_samples=num_samples)
 
     return result_signal #TODO expand to include type II and also return idler
 
 
-def calculate_pair_generation_rate(x_pos, y_pos, thetap, omegai, omegas, dr, simulation_parameters):
+def calculate_pair_generation_rate(x_pos, y_pos, thetap, omegai, omegas, dx, dy, integrate_over, simulation_parameters):
     """
     Return the entangled pair generation rate at location (x, y, z) from the crystal. Equation 84.
 
     :param x_pos: Location of signal (idler) photon in the x direction a distance z away from the crystal
     :param y_pos: Location of signal (idler) photon in the y direction a distance z away from the crystal
-    :param dr: One half the area of real space centered around the origin which the signal and idler
-        will be integrated over.
+    :param dx: One half the area of real space centered around the origin along the x direction which the idler (signal) will be integrated over
+    :param dy: One half the area of real space centered around the origin along the x direction which the idler (signal) will be integrated over
+    :param integrate_over: If "signal", integrate over signal. If "idler", integrate over idler.
     """
     momentum_span = simulation_parameters.get("momentum_span")
-    dqi = (omegai / C) * momentum_span
+    dqix = (omegai / C) * momentum_span
+    dqiy = (omegai / C) * momentum_span
+    dqsx = (omegas / C) * momentum_span
+    dqsy = (omegas / C) * momentum_span
+    num_samples_monte_carlo = simulation_parameters["num_momentum_integration_points"]
+    grid_integration_size = simulation_parameters["grid_integration_size"]
 
     rate_integrand = get_rate_integrand(x_pos, y_pos, thetap, omegai, omegas, simulation_parameters)
-    rate_integrand_signal = functools.partial(rate_integrand, integrate_over="idler")
-#    rate_integrand_idler = functools.partial(rate_integrand, integrate_over="signal")
+    rate_integrand_wrt = functools.partial(rate_integrand, integrate_over=integrate_over)
+    result = grid_integration_position(f=rate_integrand_wrt, dqsx=dqsx, dqsy=dqsy, dqix=dqix, dqiy=dqiy, dx=dx, dy=dy, num_samples=grid_integration_size)
 
-    result_signal = grid_integration_position(rate_integrand_signal, dqi, dr)
-
-    return result_signal #TODO expand to include type II and also return idler
+    return result
 
 
 def simulate_ring_momentum(simulation_parameters):
@@ -296,7 +295,7 @@ def simulate_ring_momentum(simulation_parameters):
     omegai = simulation_parameters["omegai"] # Idler frequency (Radians / sec)
     omegas = simulation_parameters["omegas"] # Signal frequency (Radians / sec)
     momentum_span = simulation_parameters["momentum_span"]
-    signal_x_pos = simulation_parameters["signal_x_pos"]
+    signal_x_pos = simulation_parameters["signal_x_pos"] #change to xs_pos TODO
     signal_y_pos = simulation_parameters["signal_y_pos"]
     idler_x_pos = simulation_parameters["idler_x_pos"]
     idler_y_pos = simulation_parameters["idler_y_pos"]
@@ -391,20 +390,22 @@ def simulate_ring_slice(simulation_parameters):
     idler_x_span = simulation_parameters["idler_x_span"] # Span in the x-direction to fix idler at
     idler_x_increment = simulation_parameters["idler_x_increment"] # Increment size to change idler by in the x-direction
     signal_y_pos = simulation_parameters["signal_y_pos"]
+    idler_y_pos = simulation_parameters["idler_y_pos"]
 
     save_directory = simulation_parameters["save_directory"]
     seed = simulation_parameters["random_seed"]
 
+    # Seed for reproducibility
     np.random.seed(seed)
 
     x = np.linspace(-x_span, x_span, num_plot_x_points)
     plt.figure(figsize=(8, 6))
     sweep_points = np.arange(-idler_x_span, idler_x_span, idler_x_increment) #TODO pass in
-
     probs = np.zeros([len(sweep_points), len(x)]) # initialize array to save data (check todo)
     for i, idler_x_pos in enumerate(sweep_points):
         calculate_conditional_probability_vec = np.vectorize(calculate_conditional_probability)
-        z1 = calculate_conditional_probability_vec(x, signal_y_pos, thetap=thetap, omegai=omegai, omegas=omegas, dr=idler_x_pos, simulation_parameters=simulation_parameters) # TODO use a diff function
+        z1 = calculate_conditional_probability_vec(xs_pos=x, ys_pos=signal_y_pos, xi_pos=idler_x_pos, yi_pos= idler_y_pos,
+                                                   thetap=thetap, omegai=omegai, omegas=omegas, simulation_parameters=simulation_parameters)
         probs[i] = z1
         plt.plot(x, z1, label=idler_x_pos)
     plt.title( "Conditional probability of signal given idler at different locations on x-axis" )
@@ -447,8 +448,8 @@ def simulate_rings(simulation_parameters):
     """
     start_time = time.time()
 
+    # Seed for reproducibility
     seed = simulation_parameters["random_seed"]
-
     np.random.seed(seed)
 
     num_plot_x_points = simulation_parameters["num_plot_x_points"] #.get
@@ -478,9 +479,10 @@ def simulate_rings(simulation_parameters):
     calculate_pair_generation_rate_vec = np.vectorize(calculate_pair_generation_rate)
 
     # Run calculate_pair_generation_rate in parallel
-    parallel_calculate = functools.partial(calculate_pair_generation_rate_vec, thetap=thetap, omegai=omegai, omegas=omegas, dr=grid_integration_size, simulation_parameters=simulation_parameters)
+    parallel_calculate = functools.partial(calculate_pair_generation_rate_vec, thetap=thetap, omegai=omegai, omegas=omegas, dx=grid_integration_size, dy=grid_integration_size,
+                                           integrate_over="idler", simulation_parameters=simulation_parameters)
     Z1 = Parallel(n_jobs=num_cores)(delayed(parallel_calculate)(xi, yi) for xi in x for yi in y)
-    Z = np.reshape(np.array(Z1), [num_plot_y_points, num_plot_x_points]).T #TODO test this
+    Z = np.reshape(np.array(Z1), [num_plot_y_points, num_plot_x_points]).T
 
     end_time = time.time()
 
@@ -518,8 +520,6 @@ def simulate_rings(simulation_parameters):
     #plt.show()
 
 
-# Todo, momentum space plot
-
 # todo, type 2 noncollinear
 
 # Plot total output power as a function of theta_p and other params
@@ -534,12 +534,16 @@ def main():
     pump_wavelength = 405e-9# 405.9e-9 # Pump wavelength in meters
     down_conversion_wavelength = 810e-9# 811.8e-9 # Wavelength of down-converted photons in meters
     thetap = 28.95 * np.pi / 180
-    #thetap = 0 * np.pi / 180
+    thetap = 28.84 * np.pi / 180
+
+   #thetap = 0 * np.pi / 180
 
     w0 = 388e-6 # beam waist in meters, page 8
     d = 107.8e-2 # pg 15
     z_pos = 35e-3 # 35 millimeters, page 15
     crystal_length = 0.002  # Length of the nonlinear crystal in meters
+
+    ######### SIMULATE RING MOMENTUM
 
     simulation_parameters = {
         "num_plot_qx_points": 1000,
@@ -552,7 +556,7 @@ def main():
         "signal_y_pos": 0,
         "idler_x_pos": 0,
         "idler_y_pos": 0,
-        "momentum_span": 0.1,
+        "momentum_span": 0.06,
         "pump_waist_size": w0,
         "pump_waist_distance": d,
         "z_pos": z_pos,
@@ -561,6 +565,8 @@ def main():
     }
 
     simulate_ring_momentum(simulation_parameters=simulation_parameters)
+
+    ######### SIMULATE RING SLICE
 
     simulation_parameters = {
         "num_plot_x_points": 100,
@@ -571,7 +577,7 @@ def main():
         "x_span": 3e-3,
         "idler_x_span": 0.003,
         "idler_x_increment": 0.0002,
-        "momentum_span": 0.014,
+        "momentum_span": 0.06,
         "num_momentum_integration_points": 20000,
         "idler_y_pos": 0,
         "signal_y_pos": 0,
@@ -585,54 +591,8 @@ def main():
 
     simulate_ring_slice(simulation_parameters=simulation_parameters)
 
-    import pdb; pdb.set_trace()
+    ################ SIMULATE RINGS
 
-    simulation_parameters = {
-        "num_plot_x_points": 100,
-        "thetap": thetap,
-        "omegap": (2 * np.pi * C) / pump_wavelength,
-        "omegai": (2 * np.pi * C) / down_conversion_wavelength,
-        "omegas": (2 * np.pi * C) / down_conversion_wavelength,
-        "x_span": 3e-3,
-        "idler_x_span": 0.003,
-        "idler_x_increment": 0.0002,
-        "momentum_span": 0.0014,
-        "num_momentum_integration_points": 200000,
-        "idler_y_pos": 0,
-        "signal_y_pos": 0,
-        "pump_waist_size": w0,
-        "pump_waist_distance": d,
-        "z_pos": z_pos,
-        "crystal_length": crystal_length,
-        "save_directory": dir_string,
-        "random_seed": 1
-    }
-
-    simulate_ring_slice(simulation_parameters=simulation_parameters)
-
-
-    simulation_parameters = {
-        "num_plot_x_points": 100,
-        "thetap": thetap,
-        "omegap": (2 * np.pi * C) / pump_wavelength,
-        "omegai": (2 * np.pi * C) / down_conversion_wavelength,
-        "omegas": (2 * np.pi * C) / down_conversion_wavelength,
-        "x_span": 3e-3,
-        "idler_x_span": 0.003,
-        "idler_x_increment": 0.0002,
-        "momentum_span": 0.0014,
-        "num_momentum_integration_points": 2000000,
-        "idler_y_pos": 0,
-        "signal_y_pos": 0,
-        "pump_waist_size": w0,
-        "pump_waist_distance": d,
-        "z_pos": z_pos,
-        "crystal_length": crystal_length,
-        "save_directory": dir_string,
-        "random_seed": 1
-    }
-
-    simulate_ring_slice(simulation_parameters=simulation_parameters)
     simulation_parameters = {
         "num_plot_x_points": 6,
         "num_plot_y_points": 6,
@@ -640,9 +600,9 @@ def main():
         "omegap": (2 * np.pi * C) / pump_wavelength,
         "omegai": (2 * np.pi * C) / down_conversion_wavelength,
         "omegas": (2 * np.pi * C) / down_conversion_wavelength,
-        "x_span": 2e-3,
-        "y_span": 2e-3,
-        "momentum_span": 0.0014,
+        "x_span": 3e-3,
+        "y_span": 3e-3,
+        "momentum_span": 0.06,
         "num_momentum_integration_points": 20000,
         "grid_integration_size": 6,
         "pump_waist_size": w0,
@@ -655,7 +615,6 @@ def main():
     }
 
     simulate_rings(simulation_parameters=simulation_parameters)
-    # Todo, create folder in specified directory with date, etc. For now just save.
 
 
 if __name__=="__main__": 
