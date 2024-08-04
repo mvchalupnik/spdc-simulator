@@ -598,8 +598,8 @@ def main():
     ################ SIMULATE RINGS
 
     simulation_parameters = {
-        "num_plot_x_points": 10,
-        "num_plot_y_points": 10,
+        "num_plot_x_points": 20,
+        "num_plot_y_points": 20,
         "thetap": thetap,
         "omegap": (2 * np.pi * C) / pump_wavelength,
         "omegai": (2 * np.pi * C) / down_conversion_wavelength,
@@ -608,7 +608,7 @@ def main():
         "y_span": 2e-3,
         "momentum_span": 0.001,#0.06,
         "num_momentum_integration_points": 2000,
-        "grid_integration_size": 10,
+        "grid_integration_size": 20,
         "pump_waist_size": w0,
         "pump_waist_distance": d,
         "z_pos": z_pos,
