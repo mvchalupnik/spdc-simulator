@@ -43,14 +43,14 @@ def monte_carlo_integration_momentum(f, dqsx, dqsy, dqix, dqiy, num_samples):
     
     return integral_estimate_sq
 
-def grid_integration_position(f, dqsx, dqsy, dqix, dqiy, dx, dy, num_samples):
+def grid_integration_position(f, dqsx, dqsy, dqix, dqiy, dx, dy, num_samples_position, num_samples_momentum):
     """
     Integrate along x and y. First pass function to be integrated along four dimensions
     of momentum (signal qx and qy, idler qx and qy).
     """
     # Generate from a grid samples within the bounds [-dx, dx] and [-dy, dy] for each variable
-    x_samples = np.linspace(-dx, dx, num_samples)
-    y_samples = np.linspace(-dy, dy, num_samples)
+    x_samples = np.linspace(-dx, dx, num_samples_position)
+    y_samples = np.linspace(-dy, dy, num_samples_position)
     coord_pairs = list(itertools.product(x_samples, y_samples))
 
     # Evaluate the function at each sample point
@@ -58,7 +58,7 @@ def grid_integration_position(f, dqsx, dqsy, dqix, dqiy, dx, dy, num_samples):
     for n in range(len(coord_pairs)):
         x_sample, y_sample = coord_pairs[n]
         g = functools.partial(f, x_pos_integrate=x_sample, y_pos_integrate=y_sample)
-        func_values[n] = monte_carlo_integration_momentum(g, dqsx, dqsy, dqix, dqiy, num_samples)
+        func_values[n] = monte_carlo_integration_momentum(g, dqsx, dqsy, dqix, dqiy, num_samples_momentum)
 
     # Calculate the average value of the function
     avg_value = np.mean(func_values)
@@ -276,7 +276,8 @@ def calculate_pair_generation_rate(x_pos, y_pos, thetap, omegai, omegas, dx, dy,
 
     rate_integrand = get_rate_integrand(x_pos, y_pos, thetap, omegai, omegas, simulation_parameters)
     rate_integrand_wrt = functools.partial(rate_integrand, integrate_over=integrate_over)
-    result = grid_integration_position(f=rate_integrand_wrt, dqsx=dqsx, dqsy=dqsy, dqix=dqix, dqiy=dqiy, dx=dx, dy=dy, num_samples=grid_integration_size)
+    result = grid_integration_position(f=rate_integrand_wrt, dqsx=dqsx, dqsy=dqsy, dqix=dqix, dqiy=dqiy, dx=dx, dy=dy,
+                                       num_samples_position=grid_integration_size, num_samples_momentum=num_samples_monte_carlo)
 
     return result
 
@@ -387,7 +388,7 @@ def simulate_ring_slice(simulation_parameters):
     omegas = simulation_parameters["omegas"] # Signal frequency (Radians / sec)
 
     num_plot_x_points = simulation_parameters["num_plot_x_points"]
-    signal_x_span = simulation_parameters["x_span"] # Span in the x-direction to plot conditional probability of signal over, in meters
+    signal_x_span = simulation_parameters["signal_x_span"] # Span in the x-direction to plot conditional probability of signal over, in meters
     signal_y_pos = simulation_parameters["signal_y_pos"]
     idler_x_span = simulation_parameters["idler_x_span"] # Span in the x-direction to fix idler at
     idler_x_increment = simulation_parameters["idler_x_increment"] # Increment size to change idler by in the x-direction
@@ -399,18 +400,18 @@ def simulate_ring_slice(simulation_parameters):
     # Seed for reproducibility
     np.random.seed(seed)
 
-    signal_x = np.linspace(-signal_x_span, signal_x_span, num_plot_x_points)
+    signal_x = np.linspace(-signal_x_span, signal_x_span, num_plot_x_points) #TODO standardize x_signal or signal_x
     plt.figure(figsize=(8, 6))
-    sweep_points = np.arange(-idler_x_span, idler_x_span, idler_x_increment) #TODO pass in
+    sweep_points = np.arange(-idler_x_span, idler_x_span, idler_x_increment)
     probs = np.zeros([len(sweep_points), len(signal_x)])
     for i, idler_x_pos in enumerate(sweep_points):
         calculate_conditional_probability_vec = np.vectorize(calculate_conditional_probability)
         z1 = calculate_conditional_probability_vec(xs_pos=signal_x, ys_pos=signal_y_pos, xi_pos=idler_x_pos, yi_pos=idler_y_pos,
                                                    thetap=thetap, omegai=omegai, omegas=omegas, simulation_parameters=simulation_parameters)
         probs[i] = z1
-        plt.plot(x, z1, label=idler_x_pos)
+        plt.plot(signal_x, z1, label=idler_x_pos)
     plt.title( "Conditional probability of signal given idler at different locations on x-axis" )
- #   plt.legend()
+    plt.legend()
  
     end_time = time.time()
     print(f"Elapsed time: {end_time - start_time}")
@@ -474,17 +475,16 @@ def simulate_rings(simulation_parameters):
 
     # First, fix signal and integrate over idler:
     # Create a grid of x and y values
-    x_signal = np.linspace(-x_span, x_span, num_plot_x_points)
-    y_signal = np.linspace(-y_span, y_span, num_plot_y_points)
-    X_signal, Y_signal = np.meshgrid(x_signal, y_signal)
+    x = np.linspace(-x_span, x_span, num_plot_x_points)
+    y = np.linspace(-y_span, y_span, num_plot_y_points)
 
     calculate_pair_generation_rate_vec = np.vectorize(calculate_pair_generation_rate)
 
     # Run calculate_pair_generation_rate in parallel
     parallel_calculate_pair_generation_rate = functools.partial(calculate_pair_generation_rate_vec, thetap=thetap, omegai=omegai, omegas=omegas,
-                                                                dx=grid_integration_size, dy=grid_integration_size,
+                                                                dx=x_span, dy=y_span,
                                                                 integrate_over="idler", simulation_parameters=simulation_parameters)
-    Z1 = Parallel(n_jobs=num_cores)(delayed(parallel_calculate_pair_generation_rate)(xs, ys) for xs in x_signal for ys in y_signal)
+    Z1 = Parallel(n_jobs=num_cores)(delayed(parallel_calculate_pair_generation_rate)(xs, ys) for xs in x for ys in y)
     Z = np.reshape(np.array(Z1), [num_plot_y_points, num_plot_x_points]).T
 
     # Next, fix idler and integrate over signal
@@ -523,8 +523,6 @@ def simulate_rings(simulation_parameters):
     with open(f"{save_directory}/{time_str}_rings_time.txt", 'w') as file:
         file.write(json.dumps(time_info))
 
-    #plt.show()
-
 
 # todo, type 2 noncollinear
 
@@ -537,8 +535,8 @@ def main():
     print("Hello world")
     dir_string = create_directory(data_directory_path="plots")
 
-    pump_wavelength = 405e-9# 405.9e-9 # Pump wavelength in meters
-    down_conversion_wavelength = 810e-9# 811.8e-9 # Wavelength of down-converted photons in meters
+    pump_wavelength = 404e-9#405e-9# 405.9e-9 # Pump wavelength in meters
+    down_conversion_wavelength = 808e-9#810e-9# 811.8e-9 # Wavelength of down-converted photons in meters
     thetap = 28.95 * np.pi / 180
     thetap = 28.84 * np.pi / 180
 
@@ -562,7 +560,7 @@ def main():
         "signal_y_pos": 0,
         "idler_x_pos": 0,
         "idler_y_pos": 0,
-        "momentum_span": 0.06,
+        "momentum_span": 0.001,#0.06,
         "pump_waist_size": w0,
         "pump_waist_distance": d,
         "z_pos": z_pos,
@@ -580,11 +578,11 @@ def main():
         "omegap": (2 * np.pi * C) / pump_wavelength,
         "omegai": (2 * np.pi * C) / down_conversion_wavelength,
         "omegas": (2 * np.pi * C) / down_conversion_wavelength,
-        "signal_x_span": 3e-3,
-        "idler_x_span": 0.003,
+        "signal_x_span": 2e-3,
+        "idler_x_span": 0.002,
         "idler_x_increment": 0.0002,
-        "momentum_span": 0.06,
-        "num_momentum_integration_points": 200000,
+        "momentum_span": 0.001,#0.06,
+        "num_momentum_integration_points": 2000,
         "idler_y_pos": 0,
         "signal_y_pos": 0,
         "pump_waist_size": w0,
@@ -600,17 +598,17 @@ def main():
     ################ SIMULATE RINGS
 
     simulation_parameters = {
-        "num_plot_x_points": 50,
-        "num_plot_y_points": 50,
+        "num_plot_x_points": 10,
+        "num_plot_y_points": 10,
         "thetap": thetap,
         "omegap": (2 * np.pi * C) / pump_wavelength,
         "omegai": (2 * np.pi * C) / down_conversion_wavelength,
         "omegas": (2 * np.pi * C) / down_conversion_wavelength,
-        "x_span": 3e-3,
-        "y_span": 3e-3,
-        "momentum_span": 0.06,
-        "num_momentum_integration_points": 20000,
-        "grid_integration_size": 6,
+        "x_span": 2e-3,
+        "y_span": 2e-3,
+        "momentum_span": 0.001,#0.06,
+        "num_momentum_integration_points": 2000,
+        "grid_integration_size": 10,
         "pump_waist_size": w0,
         "pump_waist_distance": d,
         "z_pos": z_pos,
