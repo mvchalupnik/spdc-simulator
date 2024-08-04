@@ -48,7 +48,7 @@ def grid_integration_position(f, dqsx, dqsy, dqix, dqiy, dx, dy, num_samples):
     Integrate along x and y. First pass function to be integrated along four dimensions
     of momentum (signal qx and qy, idler qx and qy).
     """
-    # Generate from a grid samples within the bounds [-dr, dr] for each variable
+    # Generate from a grid samples within the bounds [-dx, dx] and [-dy, dy] for each variable
     x_samples = np.linspace(-dx, dx, num_samples)
     y_samples = np.linspace(-dy, dy, num_samples)
     coord_pairs = list(itertools.product(x_samples, y_samples))
@@ -374,22 +374,23 @@ def simulate_ring_momentum(simulation_parameters):
 def simulate_ring_slice(simulation_parameters):
     """
     Simulate and plot a slice of the conditional probabilities of detecting the signal photon, 
-    given the idler photon is fixed (with location swept across the x-axis).
+    given the idler photon is detected on the x-axis.
 
     :param simulation_parameters: A dict containing relevant parameters for running the simulation.
     TODO use kwargs instead of a dict!
     """
     start_time = time.time()
 
-    num_plot_x_points = simulation_parameters["num_plot_x_points"] #.get
-    x_span = simulation_parameters["x_span"] # Span in the x-direction to plot conditional probability of signal over, in meters
     thetap = simulation_parameters["thetap"] # Incident pump angle, in Radians
     omegap = simulation_parameters["omegap"] # Pump frequency (Radians / sec)
     omegai = simulation_parameters["omegai"] # Idler frequency (Radians / sec)
     omegas = simulation_parameters["omegas"] # Signal frequency (Radians / sec)
+
+    num_plot_x_points = simulation_parameters["num_plot_x_points"]
+    signal_x_span = simulation_parameters["x_span"] # Span in the x-direction to plot conditional probability of signal over, in meters
+    signal_y_pos = simulation_parameters["signal_y_pos"]
     idler_x_span = simulation_parameters["idler_x_span"] # Span in the x-direction to fix idler at
     idler_x_increment = simulation_parameters["idler_x_increment"] # Increment size to change idler by in the x-direction
-    signal_y_pos = simulation_parameters["signal_y_pos"]
     idler_y_pos = simulation_parameters["idler_y_pos"]
 
     save_directory = simulation_parameters["save_directory"]
@@ -398,13 +399,13 @@ def simulate_ring_slice(simulation_parameters):
     # Seed for reproducibility
     np.random.seed(seed)
 
-    x = np.linspace(-x_span, x_span, num_plot_x_points)
+    signal_x = np.linspace(-signal_x_span, signal_x_span, num_plot_x_points)
     plt.figure(figsize=(8, 6))
     sweep_points = np.arange(-idler_x_span, idler_x_span, idler_x_increment) #TODO pass in
-    probs = np.zeros([len(sweep_points), len(x)]) # initialize array to save data (check todo)
+    probs = np.zeros([len(sweep_points), len(signal_x)])
     for i, idler_x_pos in enumerate(sweep_points):
         calculate_conditional_probability_vec = np.vectorize(calculate_conditional_probability)
-        z1 = calculate_conditional_probability_vec(xs_pos=x, ys_pos=signal_y_pos, xi_pos=idler_x_pos, yi_pos= idler_y_pos,
+        z1 = calculate_conditional_probability_vec(xs_pos=signal_x, ys_pos=signal_y_pos, xi_pos=idler_x_pos, yi_pos=idler_y_pos,
                                                    thetap=thetap, omegai=omegai, omegas=omegas, simulation_parameters=simulation_parameters)
         probs[i] = z1
         plt.plot(x, z1, label=idler_x_pos)
@@ -471,18 +472,23 @@ def simulate_rings(simulation_parameters):
     num_cores = simulation_parameters["simulation_cores"] # Number of cores to use in the simulation
     save_directory = simulation_parameters["save_directory"]
 
+    # First, fix signal and integrate over idler:
     # Create a grid of x and y values
-    x = np.linspace(-x_span, x_span, num_plot_x_points)
-    y = np.linspace(-y_span, y_span, num_plot_y_points)
-    X, Y = np.meshgrid(x, y)
+    x_signal = np.linspace(-x_span, x_span, num_plot_x_points)
+    y_signal = np.linspace(-y_span, y_span, num_plot_y_points)
+    X_signal, Y_signal = np.meshgrid(x_signal, y_signal)
 
     calculate_pair_generation_rate_vec = np.vectorize(calculate_pair_generation_rate)
 
     # Run calculate_pair_generation_rate in parallel
-    parallel_calculate = functools.partial(calculate_pair_generation_rate_vec, thetap=thetap, omegai=omegai, omegas=omegas, dx=grid_integration_size, dy=grid_integration_size,
-                                           integrate_over="idler", simulation_parameters=simulation_parameters)
-    Z1 = Parallel(n_jobs=num_cores)(delayed(parallel_calculate)(xi, yi) for xi in x for yi in y)
+    parallel_calculate_pair_generation_rate = functools.partial(calculate_pair_generation_rate_vec, thetap=thetap, omegai=omegai, omegas=omegas,
+                                                                dx=grid_integration_size, dy=grid_integration_size,
+                                                                integrate_over="idler", simulation_parameters=simulation_parameters)
+    Z1 = Parallel(n_jobs=num_cores)(delayed(parallel_calculate_pair_generation_rate)(xs, ys) for xs in x_signal for ys in y_signal)
     Z = np.reshape(np.array(Z1), [num_plot_y_points, num_plot_x_points]).T
+
+    # Next, fix idler and integrate over signal
+    # TODO, only relevant for type II
 
     end_time = time.time()
 
@@ -574,11 +580,11 @@ def main():
         "omegap": (2 * np.pi * C) / pump_wavelength,
         "omegai": (2 * np.pi * C) / down_conversion_wavelength,
         "omegas": (2 * np.pi * C) / down_conversion_wavelength,
-        "x_span": 3e-3,
+        "signal_x_span": 3e-3,
         "idler_x_span": 0.003,
         "idler_x_increment": 0.0002,
         "momentum_span": 0.06,
-        "num_momentum_integration_points": 20000,
+        "num_momentum_integration_points": 200000,
         "idler_y_pos": 0,
         "signal_y_pos": 0,
         "pump_waist_size": w0,
@@ -594,8 +600,8 @@ def main():
     ################ SIMULATE RINGS
 
     simulation_parameters = {
-        "num_plot_x_points": 6,
-        "num_plot_y_points": 6,
+        "num_plot_x_points": 50,
+        "num_plot_y_points": 50,
         "thetap": thetap,
         "omegap": (2 * np.pi * C) / pump_wavelength,
         "omegai": (2 * np.pi * C) / down_conversion_wavelength,
