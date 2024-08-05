@@ -20,6 +20,7 @@ def monte_carlo_integration_momentum(f, dqsx, dqsy, dqix, dqiy, num_samples):
     Integrate function `f` using the Monte Carlo method along four dimensions of momentum,
     qx, qy for both the signal and idler photons.
     """
+#    np.random.seed(3) #this can smooth the result
     ## Generate random samples within the bounds [-dq, dq] for each variable
     qix_samples = np.random.uniform(-dqix, dqix, num_samples)
     qiy_samples = np.random.uniform(-dqiy, dqiy, num_samples)
@@ -194,7 +195,6 @@ def get_rate_integrand(x_pos, y_pos, thetap, omegai, omegas, simulation_paramete
     ki = omegai / C
     kpz = (omegas + omegai) / C # This is on page 8 in the bottom paragraph on the left column
     omegap = omegas + omegai # This is on page 8 in the bottom paragraph on the left column
-#    momentum_span = simulation_parameters.get("momentum_span")
     z_pos = simulation_parameters["z_pos"]
     w0 = simulation_parameters["pump_waist_size"]
     d = simulation_parameters["pump_waist_distance"]
@@ -388,7 +388,7 @@ def simulate_ring_slice(simulation_parameters):
     omegas = simulation_parameters["omegas"] # Signal frequency (Radians / sec)
 
     num_plot_x_points = simulation_parameters["num_plot_x_points"]
-    signal_x_span = simulation_parameters["signal_x_span"] # Span in the x-direction to plot conditional probability of signal over, in meters
+    x_signal_span = simulation_parameters["signal_x_span"] # Span in the x-direction to plot conditional probability of signal over, in meters
     signal_y_pos = simulation_parameters["signal_y_pos"]
     idler_x_span = simulation_parameters["idler_x_span"] # Span in the x-direction to fix idler at
     idler_x_increment = simulation_parameters["idler_x_increment"] # Increment size to change idler by in the x-direction
@@ -400,16 +400,16 @@ def simulate_ring_slice(simulation_parameters):
     # Seed for reproducibility
     np.random.seed(seed)
 
-    signal_x = np.linspace(-signal_x_span, signal_x_span, num_plot_x_points) #TODO standardize x_signal or signal_x
+    x_signal = np.linspace(-x_signal_span, x_signal_span, num_plot_x_points) #TODO standardize x_signal or signal_x
     plt.figure(figsize=(8, 6))
     sweep_points = np.arange(-idler_x_span, idler_x_span, idler_x_increment)
-    probs = np.zeros([len(sweep_points), len(signal_x)])
+    probs = np.zeros([len(sweep_points), len(x_signal)])
     for i, idler_x_pos in enumerate(sweep_points):
         calculate_conditional_probability_vec = np.vectorize(calculate_conditional_probability)
-        z1 = calculate_conditional_probability_vec(xs_pos=signal_x, ys_pos=signal_y_pos, xi_pos=idler_x_pos, yi_pos=idler_y_pos,
+        z1 = calculate_conditional_probability_vec(xs_pos=x_signal, ys_pos=signal_y_pos, xi_pos=idler_x_pos, yi_pos=idler_y_pos,
                                                    thetap=thetap, omegai=omegai, omegas=omegas, simulation_parameters=simulation_parameters)
         probs[i] = z1
-        plt.plot(signal_x, z1, label=idler_x_pos)
+        plt.plot(x_signal, z1, label=idler_x_pos)
     plt.title( "Conditional probability of signal given idler at different locations on x-axis" )
     plt.legend()
  
@@ -420,8 +420,6 @@ def simulate_ring_slice(simulation_parameters):
     time_str = get_current_time()
 
     plt.savefig(f"{save_directory}/{time_str}_rings_slice.png", dpi=300)
-
-    #plt.show()
 
     # Save parameters and data
     with open(f"{save_directory}/{time_str}_ring_slice.pkl", "wb") as file:
@@ -454,7 +452,7 @@ def simulate_rings(simulation_parameters):
     seed = simulation_parameters["random_seed"]
     np.random.seed(seed)
 
-    num_plot_x_points = simulation_parameters["num_plot_x_points"] #.get
+    num_plot_x_points = simulation_parameters["num_plot_x_points"]
     num_plot_y_points = simulation_parameters["num_plot_y_points"]
     x_span = simulation_parameters["x_span"] # Span in the x-direction to plot over, in meters
     y_span = simulation_parameters["y_span"] # Span in the y-direction to plot over, in meters
@@ -535,10 +533,11 @@ def main():
     print("Hello world")
     dir_string = create_directory(data_directory_path="plots")
 
-    pump_wavelength = 404e-9#405e-9# 405.9e-9 # Pump wavelength in meters
-    down_conversion_wavelength = 808e-9#810e-9# 811.8e-9 # Wavelength of down-converted photons in meters
+    pump_wavelength = 405e-9# 405.9e-9 # Pump wavelength in meters
+    down_conversion_wavelength = 810e-9# 811.8e-9 # Wavelength of down-converted photons in meters
     thetap = 28.95 * np.pi / 180
     thetap = 28.84 * np.pi / 180
+    thetap = 28.64 * np.pi / 180
 
    #thetap = 0 * np.pi / 180
 
@@ -578,11 +577,11 @@ def main():
         "omegap": (2 * np.pi * C) / pump_wavelength,
         "omegai": (2 * np.pi * C) / down_conversion_wavelength,
         "omegas": (2 * np.pi * C) / down_conversion_wavelength,
-        "signal_x_span": 2e-3,
-        "idler_x_span": 0.002,
-        "idler_x_increment": 0.0002,
-        "momentum_span": 0.001,#0.06,
-        "num_momentum_integration_points": 2000,
+        "signal_x_span": 0.003,
+        "idler_x_span": 0.003,
+        "idler_x_increment": 0.0001,
+        "momentum_span": 0.001,
+        "num_momentum_integration_points": 20000,
         "idler_y_pos": 0,
         "signal_y_pos": 0,
         "pump_waist_size": w0,
@@ -604,9 +603,9 @@ def main():
         "omegap": (2 * np.pi * C) / pump_wavelength,
         "omegai": (2 * np.pi * C) / down_conversion_wavelength,
         "omegas": (2 * np.pi * C) / down_conversion_wavelength,
-        "x_span": 2e-3,
-        "y_span": 2e-3,
-        "momentum_span": 0.001,#0.06,
+        "x_span": 3e-3,
+        "y_span": 3e-3,
+        "momentum_span": 0.001, #0.06,
         "num_momentum_integration_points": 2000,
         "grid_integration_size": 20,
         "pump_waist_size": w0,
