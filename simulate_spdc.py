@@ -437,7 +437,7 @@ def simulate_ring_slice(simulation_parameters):
 
     # Save time to a text file
     time_info = {"Time Elapsed in seconds" : end_time - start_time}
-    with open(f"{save_directory}/{time_str}_ring_slice_{num_plot_x_points}_time.txt", 'w') as file:
+    with open(f"{save_directory}/{time_str}_ring_slice_time.txt", 'w') as file:
         file.write(json.dumps(time_info))
 
 

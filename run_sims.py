@@ -134,7 +134,7 @@ def main():
         "pump_waist_distance": d,
         "z_pos": z_pos,
         "crystal_length": crystal_length,
-        "simulation_cores": 4,
+        "simulation_cores": 32,
         "save_directory": dir_string,
         "random_seed": 1
     }
@@ -159,7 +159,7 @@ def main():
         "pump_waist_distance": d,
         "z_pos": z_pos,
         "crystal_length": crystal_length,
-        "simulation_cores": 4,
+        "simulation_cores": 32,
         "save_directory": dir_string,
         "random_seed": 1
     }
