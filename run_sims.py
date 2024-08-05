@@ -44,6 +44,29 @@ def main():
     simulate_ring_momentum(simulation_parameters=simulation_parameters)
 
     ######### SIMULATE RING SLICE
+    simulation_parameters = {
+        "num_plot_x_points": 100,
+        "thetap": thetap,
+        "omegap": (2 * np.pi * C) / pump_wavelength,
+        "omegai": (2 * np.pi * C) / down_conversion_wavelength,
+        "omegas": (2 * np.pi * C) / down_conversion_wavelength,
+        "signal_x_span": 0.003,
+        "idler_x_span": 0.003,
+        "idler_x_increment": 0.0001,
+        "momentum_span": 0.06,
+        "num_momentum_integration_points": 200000,
+        "idler_y_pos": 0,
+        "signal_y_pos": 0,
+        "pump_waist_size": w0,
+        "pump_waist_distance": d,
+        "z_pos": z_pos,
+        "crystal_length": crystal_length,
+        "simulation_cores": 2,
+        "save_directory": dir_string,
+        "random_seed": 1
+    }
+
+    simulate_ring_slice(simulation_parameters=simulation_parameters)
 
     simulation_parameters = {
         "num_plot_x_points": 100,
@@ -55,7 +78,56 @@ def main():
         "idler_x_span": 0.003,
         "idler_x_increment": 0.0001,
         "momentum_span": 0.06,
-        "num_momentum_integration_points": 20000,
+        "num_momentum_integration_points": 200000,
+        "idler_y_pos": 0,
+        "signal_y_pos": 0,
+        "pump_waist_size": w0,
+        "pump_waist_distance": d,
+        "z_pos": z_pos,
+        "crystal_length": crystal_length,
+        "simulation_cores": 4,
+        "save_directory": dir_string,
+        "random_seed": 1
+    }
+
+    simulate_ring_slice(simulation_parameters=simulation_parameters)
+
+
+    simulation_parameters = {
+        "num_plot_x_points": 100,
+        "thetap": thetap,
+        "omegap": (2 * np.pi * C) / pump_wavelength,
+        "omegai": (2 * np.pi * C) / down_conversion_wavelength,
+        "omegas": (2 * np.pi * C) / down_conversion_wavelength,
+        "signal_x_span": 0.003,
+        "idler_x_span": 0.003,
+        "idler_x_increment": 0.0001,
+        "momentum_span": 0.06,
+        "num_momentum_integration_points": 200000,
+        "idler_y_pos": 0,
+        "signal_y_pos": 0,
+        "pump_waist_size": w0,
+        "pump_waist_distance": d,
+        "z_pos": z_pos,
+        "crystal_length": crystal_length,
+        "simulation_cores": 8,
+        "save_directory": dir_string,
+        "random_seed": 1
+    }
+
+    simulate_ring_slice(simulation_parameters=simulation_parameters)
+
+    simulation_parameters = {
+        "num_plot_x_points": 100,
+        "thetap": thetap,
+        "omegap": (2 * np.pi * C) / pump_wavelength,
+        "omegai": (2 * np.pi * C) / down_conversion_wavelength,
+        "omegas": (2 * np.pi * C) / down_conversion_wavelength,
+        "signal_x_span": 0.003,
+        "idler_x_span": 0.003,
+        "idler_x_increment": 0.0001,
+        "momentum_span": 0.06,
+        "num_momentum_integration_points": 200000000,
         "idler_y_pos": 0,
         "signal_y_pos": 0,
         "pump_waist_size": w0,
