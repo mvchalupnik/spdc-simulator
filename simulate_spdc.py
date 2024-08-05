@@ -396,6 +396,7 @@ def simulate_ring_slice(simulation_parameters):
 
     save_directory = simulation_parameters["save_directory"]
     seed = simulation_parameters["random_seed"]
+    num_cores = simulation_parameters["simulation_cores"]
 
     # Seed for reproducibility
     np.random.seed(seed)
@@ -403,16 +404,17 @@ def simulate_ring_slice(simulation_parameters):
     x_signal = np.linspace(-x_signal_span, x_signal_span, num_plot_x_points) #TODO standardize x_signal or signal_x
     plt.figure(figsize=(8, 6))
     sweep_points = np.arange(-idler_x_span, idler_x_span, idler_x_increment)
-    probs = np.zeros([len(sweep_points), len(x_signal)])
-    for i, idler_x_pos in enumerate(sweep_points):
-        calculate_conditional_probability_vec = np.vectorize(calculate_conditional_probability)
-        z1 = calculate_conditional_probability_vec(xs_pos=x_signal, ys_pos=signal_y_pos, xi_pos=idler_x_pos, yi_pos=idler_y_pos,
-                                                   thetap=thetap, omegai=omegai, omegas=omegas, simulation_parameters=simulation_parameters)
-        probs[i] = z1
-        plt.plot(x_signal, z1, label=idler_x_pos)
+
+    calculate_conditional_probability_vec = np.vectorize(calculate_conditional_probability)
+    parallel_calc_conditional_prob = functools.partial(calculate_conditional_probability_vec, yi_pos=idler_y_pos,
+                                                       thetap=thetap, omegai=omegai, omegas=omegas, simulation_parameters=simulation_parameters)
+
+    z1 = Parallel(n_jobs=num_cores)(delayed(parallel_calc_conditional_prob)(x_signal, signal_y_pos, idler_x_pos) for idler_x_pos in sweep_points)
+    probs = np.transpose(np.array(z1))
+    plt.plot(x_signal, probs)
+
     plt.title( "Conditional probability of signal given idler at different locations on x-axis" )
-    plt.legend()
- 
+
     end_time = time.time()
     print(f"Elapsed time: {end_time - start_time}")
 
@@ -527,98 +529,3 @@ def simulate_rings(simulation_parameters):
 # Plot total output power as a function of theta_p and other params
 # TODO
 
-
-def main():
-    """ main function """
-    print("Hello world")
-    dir_string = create_directory(data_directory_path="plots")
-
-    pump_wavelength = 405e-9# 405.9e-9 # Pump wavelength in meters
-    down_conversion_wavelength = 810e-9# 811.8e-9 # Wavelength of down-converted photons in meters
-    thetap = 28.95 * np.pi / 180
-    thetap = 28.84 * np.pi / 180
-    thetap = 28.64 * np.pi / 180
-
-   #thetap = 0 * np.pi / 180
-
-    w0 = 388e-6 # beam waist in meters, page 8
-    d = 107.8e-2 # pg 15
-    z_pos = 35e-3 # 35 millimeters, page 15
-    crystal_length = 0.002  # Length of the nonlinear crystal in meters
-
-    ######### SIMULATE RING MOMENTUM
-
-    simulation_parameters = {
-        "num_plot_qx_points": 1000,
-        "num_plot_qy_points": 1000,
-        "thetap": thetap,
-        "omegap": (2 * np.pi * C) / pump_wavelength,
-        "omegai": (2 * np.pi * C) / down_conversion_wavelength,
-        "omegas": (2 * np.pi * C) / down_conversion_wavelength,
-        "signal_x_pos": 0,
-        "signal_y_pos": 0,
-        "idler_x_pos": 0,
-        "idler_y_pos": 0,
-        "momentum_span": 0.001,#0.06,
-        "pump_waist_size": w0,
-        "pump_waist_distance": d,
-        "z_pos": z_pos,
-        "crystal_length": crystal_length,
-        "save_directory": dir_string,
-    }
-
-    simulate_ring_momentum(simulation_parameters=simulation_parameters)
-
-    ######### SIMULATE RING SLICE
-
-    simulation_parameters = {
-        "num_plot_x_points": 100,
-        "thetap": thetap,
-        "omegap": (2 * np.pi * C) / pump_wavelength,
-        "omegai": (2 * np.pi * C) / down_conversion_wavelength,
-        "omegas": (2 * np.pi * C) / down_conversion_wavelength,
-        "signal_x_span": 0.003,
-        "idler_x_span": 0.003,
-        "idler_x_increment": 0.0001,
-        "momentum_span": 0.001,
-        "num_momentum_integration_points": 20000,
-        "idler_y_pos": 0,
-        "signal_y_pos": 0,
-        "pump_waist_size": w0,
-        "pump_waist_distance": d,
-        "z_pos": z_pos,
-        "crystal_length": crystal_length,
-        "save_directory": dir_string,
-        "random_seed": 1
-    }
-
-    simulate_ring_slice(simulation_parameters=simulation_parameters)
-
-    ################ SIMULATE RINGS
-
-    simulation_parameters = {
-        "num_plot_x_points": 20,
-        "num_plot_y_points": 20,
-        "thetap": thetap,
-        "omegap": (2 * np.pi * C) / pump_wavelength,
-        "omegai": (2 * np.pi * C) / down_conversion_wavelength,
-        "omegas": (2 * np.pi * C) / down_conversion_wavelength,
-        "x_span": 3e-3,
-        "y_span": 3e-3,
-        "momentum_span": 0.001, #0.06,
-        "num_momentum_integration_points": 2000,
-        "grid_integration_size": 20,
-        "pump_waist_size": w0,
-        "pump_waist_distance": d,
-        "z_pos": z_pos,
-        "crystal_length": crystal_length,
-        "simulation_cores": 4,
-        "save_directory": dir_string,
-        "random_seed": 1
-    }
-
-    simulate_rings(simulation_parameters=simulation_parameters)
-
-
-if __name__=="__main__": 
-    main()
