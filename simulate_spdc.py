@@ -402,7 +402,6 @@ def simulate_ring_slice(simulation_parameters):
     np.random.seed(seed)
 
     x_signal = np.linspace(-x_signal_span, x_signal_span, num_plot_x_points) #TODO standardize x_signal or signal_x
-    plt.figure(figsize=(8, 6))
     sweep_points = np.arange(-idler_x_span, idler_x_span, idler_x_increment)
 
     calculate_conditional_probability_vec = np.vectorize(calculate_conditional_probability)
@@ -411,6 +410,8 @@ def simulate_ring_slice(simulation_parameters):
 
     z1 = Parallel(n_jobs=num_cores)(delayed(parallel_calc_conditional_prob)(x_signal, signal_y_pos, idler_x_pos) for idler_x_pos in sweep_points)
     probs = np.transpose(np.array(z1))
+
+    plt.figure(figsize=(8, 6))
     plt.plot(x_signal, probs)
 
     plt.title( "Conditional probability of signal given idler at different locations on x-axis" )
