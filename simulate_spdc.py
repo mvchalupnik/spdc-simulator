@@ -56,12 +56,14 @@ def grid_integration_momentum(f, dqsx, dqsy, dqix, dqiy, num_samples):
     Integrate function `f` using the Monte Carlo method along four dimensions of momentum,
     qx, qy for both the signal and idler photons.
     """
-#    np.random.seed(3) #this can smooth the result
+    np.random.seed(3) #this can smooth the result
     ## Generate random samples within the bounds [-dq, dq] for each variable
     qix_samples = np.random.uniform(-dqix, dqix, num_samples)
-    qiy_samples = np.random.uniform(-dqiy, dqiy, num_samples)
+    qiy_samples = 0
+#    qiy_samples = np.random.uniform(-dqiy, dqiy, num_samples)
     qsx_samples = np.random.uniform(-dqsx, dqsx, num_samples)
-    qsy_samples = np.random.uniform(-dqsy, dqsy, num_samples)
+#    qsy_samples = np.random.uniform(-dqsy, dqsy, num_samples)
+    qsy_samples = 0
 
     # Evaluate the function at each sample point
     func_values = f(qix_samples, qiy_samples, qsx_samples, qsy_samples)
