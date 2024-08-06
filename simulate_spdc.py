@@ -15,7 +15,43 @@ from file_utils import get_current_time, create_directory
 # Constants
 C = 2.99792e8  # Speed of light, in meters per second
 
-def monte_carlo_integration_momentum(f, dqsx, dqsy, dqix, dqiy, num_samples):
+def ggrid_integration_momentum(f, dqsx, dqsy, dqix, dqiy, num_samples):
+    """
+    Integrate function `f` using the Monte Carlo method along four dimensions of momentum,
+    qx, qy for both the signal and idler photons.
+    """
+#    np.random.seed(3) #this can smooth the result
+    ## Generate random samples within the bounds [-dq, dq] for each variable
+    # idea: Need to sample near 0?
+  #  print(num_samples)
+    num_grid_samples = int(np.sqrt(np.sqrt(num_samples)))
+  #  print(f"num_grid_samples: {num_grid_samples}")
+    qix_samples = np.linspace(-dqix, dqix, num_grid_samples)
+    qiy_samples = np.linspace(-dqiy, dqiy, num_grid_samples)
+    qsx_samples = np.linspace(-dqsx, dqsx, num_grid_samples)
+    qsy_samples = np.linspace(-dqsy, dqsy, num_grid_samples)
+
+    samples = itertools.product(qix_samples, qiy_samples, qsx_samples, qsy_samples)
+  #  print(np.size(coord_pairs))
+    # Evaluate the function at each sample point
+#    import pdb; pdb.set_trace() # BETTER WAY TO DO THIS?
+    func_values = [f(a, b, c, d) for a, b, c, d in samples]
+
+    # Calculate the average value of the function
+    avg_value = np.mean(func_values)
+    
+    # The volume of the integration region
+    volume = (2 * dqix) * (2 * dqiy) * (2 * dqsx) * (2 * dqsy)
+    
+    # Estimate the integral as the average value times the volume
+    integral_estimate = avg_value * volume
+
+    # Square the integral at the end
+    integral_estimate_sq = np.abs(integral_estimate)**2
+    
+    return integral_estimate_sq
+
+def grid_integration_momentum(f, dqsx, dqsy, dqix, dqiy, num_samples):
     """
     Integrate function `f` using the Monte Carlo method along four dimensions of momentum,
     qx, qy for both the signal and idler photons.
@@ -41,7 +77,7 @@ def monte_carlo_integration_momentum(f, dqsx, dqsy, dqix, dqiy, num_samples):
 
     # Square the integral at the end
     integral_estimate_sq = np.abs(integral_estimate)**2
-    
+
     return integral_estimate_sq
 
 def grid_integration_position(f, dqsx, dqsy, dqix, dqiy, dx, dy, num_samples_position, num_samples_momentum):
@@ -59,7 +95,8 @@ def grid_integration_position(f, dqsx, dqsy, dqix, dqiy, dx, dy, num_samples_pos
     for n in range(len(coord_pairs)):
         x_sample, y_sample = coord_pairs[n]
         g = functools.partial(f, x_pos_integrate=x_sample, y_pos_integrate=y_sample)
-        func_values[n] = monte_carlo_integration_momentum(g, dqsx, dqsy, dqix, dqiy, num_samples_momentum)
+#        func_values[n] = monte_carlo_integration_momentum(g, dqsx, dqsy, dqix, dqiy, num_samples_momentum)
+        func_values[n] = grid_integration_momentum(g, dqsx, dqsy, dqix, dqiy, num_samples_momentum)
 
     # Calculate the average value of the function
     avg_value = np.mean(func_values)
@@ -224,6 +261,7 @@ def get_rate_integrand(x_pos, y_pos, thetap, omegai, omegas, simulation_paramete
         integrand = np.exp(1j * (ks + ki) * z_pos) * pump_function(qix + qsx, qiy + qsy, kpz, omegap, w0, d) * \
             phase_matching(delta_k_type_1(qsx, qix, qsy, qiy, thetap, omegap, omegai, omegas), crystal_length) * \
             np.exp(1j * (qs_dot_rhos + qi_dot_rhoi - qs_abs**2 * z_pos / (2 * ks) - qi_abs**2 * z_pos / (2 * ki)))
+
         return integrand
 
     return rate_integrand
@@ -247,7 +285,8 @@ def calculate_conditional_probability(xs_pos, ys_pos, xi_pos, yi_pos, thetap, om
 
     rate_integrand = get_rate_integrand(xs_pos, ys_pos, thetap, omegai, omegas, simulation_parameters)
     rate_integrand_signal = functools.partial(rate_integrand, integrate_over="idler", x_pos_integrate=xi_pos, y_pos_integrate=yi_pos)
-    result_signal = monte_carlo_integration_momentum(f=rate_integrand_signal, dqsx=dqsx, dqsy=dqsy, dqix=dqix, dqiy=dqiy, num_samples=num_samples)
+#    result_signal = monte_carlo_integration_momentum(f=rate_integrand_signal, dqsx=dqsx, dqsy=dqsy, dqix=dqix, dqiy=dqiy, num_samples=num_samples)
+    result_signal = grid_integration_momentum(f=rate_integrand_signal, dqsx=dqsx, dqsy=dqsy, dqix=dqix, dqiy=dqiy, num_samples=num_samples)
 
     # TODO right now result_idler will equal result_signal; I think this  is always true but need to check, also given different omegas, omegai
     # rate_integrand_idler = functools.partial(rate_integrand, integrate_over="signal", x_pos_integrate=xs_pos, y_pos_integrate=ys_pos)
@@ -362,6 +401,7 @@ def simulate_ring_momentum(simulation_parameters):
     time_str = get_current_time()
 
     plt.savefig(f"{save_directory}/{time_str}_momentum.png", dpi=300)
+    plt.close()
 
     # Save parameters to a pickled file
     with open(f"{save_directory}/{time_str}_momentum_params.pkl", "wb") as file:
@@ -370,7 +410,6 @@ def simulate_ring_momentum(simulation_parameters):
     # Save parameters to a text file
     with open(f"{save_directory}/{time_str}_momentum_params.txt", 'w') as file:
         file.write(json.dumps(simulation_parameters))
-
 
 def simulate_ring_slice(simulation_parameters):
     """
@@ -423,6 +462,7 @@ def simulate_ring_slice(simulation_parameters):
     time_str = get_current_time()
 
     plt.savefig(f"{save_directory}/{time_str}_rings_slice.png", dpi=300)
+    plt.close()
 
     # Save parameters and data
     with open(f"{save_directory}/{time_str}_ring_slice.pkl", "wb") as file:
@@ -440,7 +480,6 @@ def simulate_ring_slice(simulation_parameters):
     time_info = {"Time Elapsed in seconds" : end_time - start_time}
     with open(f"{save_directory}/{time_str}_ring_slice_time.txt", 'w') as file:
         file.write(json.dumps(time_info))
-
 
 def simulate_rings(simulation_parameters):
     """
@@ -506,6 +545,7 @@ def simulate_rings(simulation_parameters):
 
     plt.title( "BBO crystal entangled photons rates" )
     plt.savefig(f"{save_directory}/{time_str}_rings.png", dpi=300)    
+    plt.close()
 
     # Save data to a pickled file
     with open(f"{save_directory}/{time_str}_rings.pkl", "wb") as file:
