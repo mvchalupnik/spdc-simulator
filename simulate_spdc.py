@@ -1,64 +1,89 @@
 import time
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy import integrate
-import scipy
 from joblib import Parallel, delayed
-from scipy.stats import qmc
 import functools
-from scipy.stats import norm
 import itertools
 import pickle
 import json
-from file_utils import get_current_time, create_directory 
+from file_utils import get_current_time 
 
 # Constants
 C = 2.99792e8  # Speed of light, in meters per second
 
-def ggrid_integration_momentum(f, dqsx, dqsy, dqix, dqiy, num_samples):
+def batched_monte_carlo_integration_momentum(f, dqsx, dqsy, dqix, dqiy, num_samples):
     """
     Integrate function `f` using the Monte Carlo method along four dimensions of momentum,
     qx, qy for both the signal and idler photons.
     """
-#    np.random.seed(3) #this can smooth the result
+  #  np.random.seed(3) #this can smooth the result
     ## Generate random samples within the bounds [-dq, dq] for each variable
-    # idea: Need to sample near 0?
-  #  print(num_samples)
-    num_grid_samples = int(np.sqrt(np.sqrt(num_samples)))
-  #  print(f"num_grid_samples: {num_grid_samples}")
-    qix_samples = np.linspace(-dqix, dqix, num_grid_samples)
-    qiy_samples = np.linspace(-dqiy, dqiy, num_grid_samples)
-    qsx_samples = np.linspace(-dqsx, dqsx, num_grid_samples)
-    qsy_samples = np.linspace(-dqsy, dqsy, num_grid_samples)
+    MAX_BATCH_SIZE = 200000
+    batch_size = np.min([MAX_BATCH_SIZE, num_samples])
 
-    samples = itertools.product(qix_samples, qiy_samples, qsx_samples, qsy_samples)
-  #  print(np.size(coord_pairs))
+    mytime = time.time()
+
+    average = None
+    total_points_averaged = 0
+    for j in range(num_samples // batch_size):
+        qix_samples = np.random.uniform(-dqix, dqix, batch_size)
+        qiy_samples = 0
+    #    qiy_samples = np.random.uniform(-dqiy, dqiy, num_samples)
+        qsx_samples = np.random.uniform(-dqsx, dqsx, batch_size)
+    #    qsy_samples = np.random.uniform(-dqsy, dqsy, num_samples)
+        qsy_samples = 0
+
+        func_values = f(qix_samples, qiy_samples, qsx_samples, qsy_samples)
+        average = np.mean(func_values) if j == 0 else np.mean(average, np.mean(func_values))
+        total_points_averaged += batch_size
+
+
+    batch_remainder = num_samples % batch_size
+    if batch_remainder != 0:
+        qix_samples = np.random.uniform(-dqix, dqix, batch_remainder)
+        qiy_samples = 0
+    #    qiy_samples = np.random.uniform(-dqiy, dqiy, num_samples)
+        qsx_samples = np.random.uniform(-dqsx, dqsx, batch_remainder)
+    #    qsy_samples = np.random.uniform(-dqsy, dqsy, num_samples)
+        qsy_samples = 0
+
+        func_values = f(qix_samples, qiy_samples, qsx_samples, qsy_samples)
+        average = np.mean(func_values) if j == 0 else np.mean(average, np.mean(func_values))
+        total_points_averaged += batch_remainder
+    mytime2 = time.time()
+    import pdb; pdb.set_trace()
+
     # Evaluate the function at each sample point
-#    import pdb; pdb.set_trace() # BETTER WAY TO DO THIS?
-    func_values = [f(a, b, c, d) for a, b, c, d in samples]
+    print(f"Time increment1: {mytime2 - mytime}")
+#    mytime3 = time.time()
+#    func_values = f(qix_samples, qiy_samples, qsx_samples, qsy_samples)
+#    mytime4 = time.time()
+#    print(f"Time increment2: {mytime4 - mytime3}")
 
-    # Calculate the average value of the function
-    avg_value = np.mean(func_values)
+#    # Calculate the average value of the function
+#    avg_value = np.mean(func_values)
     
     # The volume of the integration region
     volume = (2 * dqix) * (2 * dqiy) * (2 * dqsx) * (2 * dqsy)
     
     # Estimate the integral as the average value times the volume
-    integral_estimate = avg_value * volume
+    integral_estimate = average * volume
 
     # Square the integral at the end
     integral_estimate_sq = np.abs(integral_estimate)**2
-    
+
     return integral_estimate_sq
 
-def grid_integration_momentum(f, dqsx, dqsy, dqix, dqiy, num_samples):
+def fdsfdsmonte_carlo_integration_momentum(f, dqsx, dqsy, dqix, dqiy, num_samples):
     """
     Integrate function `f` using the Monte Carlo method along four dimensions of momentum,
     qx, qy for both the signal and idler photons.
     """
-    np.random.seed(3) #this can smooth the result
+  #  np.random.seed(3) #this can smooth the result
     ## Generate random samples within the bounds [-dq, dq] for each variable
+    mytime = time.time()
     qix_samples = np.random.uniform(-dqix, dqix, num_samples)
+    mytime2 = time.time()
     qiy_samples = 0
 #    qiy_samples = np.random.uniform(-dqiy, dqiy, num_samples)
     qsx_samples = np.random.uniform(-dqsx, dqsx, num_samples)
@@ -66,7 +91,11 @@ def grid_integration_momentum(f, dqsx, dqsy, dqix, dqiy, num_samples):
     qsy_samples = 0
 
     # Evaluate the function at each sample point
+    print(f"Time increment1: {mytime2 - mytime}")
+    mytime3 = time.time()
     func_values = f(qix_samples, qiy_samples, qsx_samples, qsy_samples)
+    mytime4 = time.time()
+    print(f"Time increment2: {mytime4 - mytime3}")
 
     # Calculate the average value of the function
     avg_value = np.mean(func_values)
@@ -97,8 +126,8 @@ def grid_integration_position(f, dqsx, dqsy, dqix, dqiy, dx, dy, num_samples_pos
     for n in range(len(coord_pairs)):
         x_sample, y_sample = coord_pairs[n]
         g = functools.partial(f, x_pos_integrate=x_sample, y_pos_integrate=y_sample)
-#        func_values[n] = monte_carlo_integration_momentum(g, dqsx, dqsy, dqix, dqiy, num_samples_momentum)
-        func_values[n] = grid_integration_momentum(g, dqsx, dqsy, dqix, dqiy, num_samples_momentum)
+        func_values[n] = monte_carlo_integration_momentum(g, dqsx, dqsy, dqix, dqiy, num_samples_momentum)
+#        func_values[n] = grid_integration_momentum(g, dqsx, dqsy, dqix, dqiy, num_samples_momentum)
 
     # Calculate the average value of the function
     avg_value = np.mean(func_values)
@@ -287,8 +316,8 @@ def calculate_conditional_probability(xs_pos, ys_pos, xi_pos, yi_pos, thetap, om
 
     rate_integrand = get_rate_integrand(xs_pos, ys_pos, thetap, omegai, omegas, simulation_parameters)
     rate_integrand_signal = functools.partial(rate_integrand, integrate_over="idler", x_pos_integrate=xi_pos, y_pos_integrate=yi_pos)
-#    result_signal = monte_carlo_integration_momentum(f=rate_integrand_signal, dqsx=dqsx, dqsy=dqsy, dqix=dqix, dqiy=dqiy, num_samples=num_samples)
-    result_signal = grid_integration_momentum(f=rate_integrand_signal, dqsx=dqsx, dqsy=dqsy, dqix=dqix, dqiy=dqiy, num_samples=num_samples)
+    result_signal = monte_carlo_integration_momentum(f=rate_integrand_signal, dqsx=dqsx, dqsy=dqsy, dqix=dqix, dqiy=dqiy, num_samples=num_samples)
+#    result_signal = grid_integration_momentum(f=rate_integrand_signal, dqsx=dqsx, dqsy=dqsy, dqix=dqix, dqiy=dqiy, num_samples=num_samples)
 
     # TODO right now result_idler will equal result_signal; I think this  is always true but need to check, also given different omegas, omegai
     # rate_integrand_idler = functools.partial(rate_integrand, integrate_over="signal", x_pos_integrate=xs_pos, y_pos_integrate=ys_pos)
