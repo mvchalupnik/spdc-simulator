@@ -11,50 +11,49 @@ from file_utils import get_current_time
 # Constants
 C = 2.99792e8  # Speed of light, in meters per second
 
-def batched_monte_carlo_integration_momentum(f, dqsx, dqsy, dqix, dqiy, num_samples):
+def monte_carlo_integration_momentum(f, dqsx, dqsy, dqix, dqiy, num_samples):
     """
     Integrate function `f` using the Monte Carlo method along four dimensions of momentum,
     qx, qy for both the signal and idler photons.
     """
   #  np.random.seed(3) #this can smooth the result
     ## Generate random samples within the bounds [-dq, dq] for each variable
-    MAX_BATCH_SIZE = 200000
+#    MAX_BATCH_SIZE = 200000
+    MAX_BATCH_SIZE = 20000000
+
     batch_size = np.min([MAX_BATCH_SIZE, num_samples])
 
     mytime = time.time()
 
     average = None
-    total_points_averaged = 0
+    # TODO clean up and simplify
     for j in range(num_samples // batch_size):
         qix_samples = np.random.uniform(-dqix, dqix, batch_size)
         qiy_samples = 0
-    #    qiy_samples = np.random.uniform(-dqiy, dqiy, num_samples)
+#        qiy_samples = np.random.uniform(-dqiy, dqiy, batch_size)
         qsx_samples = np.random.uniform(-dqsx, dqsx, batch_size)
-    #    qsy_samples = np.random.uniform(-dqsy, dqsy, num_samples)
+#        qsy_samples = np.random.uniform(-dqsy, dqsy, batch_size)
         qsy_samples = 0
 
         func_values = f(qix_samples, qiy_samples, qsx_samples, qsy_samples)
-        average = np.mean(func_values) if j == 0 else np.mean(average, np.mean(func_values))
-        total_points_averaged += batch_size
+        average = np.mean(func_values) if j == 0 else np.mean([average, np.mean(func_values)]) # Make this into a list for parallelization
 
 
     batch_remainder = num_samples % batch_size
     if batch_remainder != 0:
         qix_samples = np.random.uniform(-dqix, dqix, batch_remainder)
         qiy_samples = 0
-    #    qiy_samples = np.random.uniform(-dqiy, dqiy, num_samples)
+    #    qiy_samples = np.random.uniform(-dqiy, dqiy, batch_remainder)
         qsx_samples = np.random.uniform(-dqsx, dqsx, batch_remainder)
-    #    qsy_samples = np.random.uniform(-dqsy, dqsy, num_samples)
+    #    qsy_samples = np.random.uniform(-dqsy, dqsy, batch_remainder)
         qsy_samples = 0
 
         func_values = f(qix_samples, qiy_samples, qsx_samples, qsy_samples)
-        average = np.mean(func_values) if j == 0 else np.mean(average, np.mean(func_values))
-        total_points_averaged += batch_remainder
+        average = np.mean([average, np.mean(func_values)])
     mytime2 = time.time()
-    import pdb; pdb.set_trace()
 
     # Evaluate the function at each sample point
-    print(f"Time increment1: {mytime2 - mytime}")
+ #   print(f"Time increment1: {mytime2 - mytime}")
 #    mytime3 = time.time()
 #    func_values = f(qix_samples, qiy_samples, qsx_samples, qsy_samples)
 #    mytime4 = time.time()
@@ -74,42 +73,42 @@ def batched_monte_carlo_integration_momentum(f, dqsx, dqsy, dqix, dqiy, num_samp
 
     return integral_estimate_sq
 
-def fdsfdsmonte_carlo_integration_momentum(f, dqsx, dqsy, dqix, dqiy, num_samples):
-    """
-    Integrate function `f` using the Monte Carlo method along four dimensions of momentum,
-    qx, qy for both the signal and idler photons.
-    """
-  #  np.random.seed(3) #this can smooth the result
-    ## Generate random samples within the bounds [-dq, dq] for each variable
-    mytime = time.time()
-    qix_samples = np.random.uniform(-dqix, dqix, num_samples)
-    mytime2 = time.time()
-    qiy_samples = 0
-#    qiy_samples = np.random.uniform(-dqiy, dqiy, num_samples)
-    qsx_samples = np.random.uniform(-dqsx, dqsx, num_samples)
-#    qsy_samples = np.random.uniform(-dqsy, dqsy, num_samples)
-    qsy_samples = 0
+# def fdsfdsmonte_carlo_integration_momentum(f, dqsx, dqsy, dqix, dqiy, num_samples):
+#     """
+#     Integrate function `f` using the Monte Carlo method along four dimensions of momentum,
+#     qx, qy for both the signal and idler photons.
+#     """
+#   #  np.random.seed(3) #this can smooth the result
+#     ## Generate random samples within the bounds [-dq, dq] for each variable
+#     mytime = time.time()
+#     qix_samples = np.random.uniform(-dqix, dqix, num_samples)
+#     mytime2 = time.time()
+#     qiy_samples = 0
+# #    qiy_samples = np.random.uniform(-dqiy, dqiy, num_samples)
+#     qsx_samples = np.random.uniform(-dqsx, dqsx, num_samples)
+# #    qsy_samples = np.random.uniform(-dqsy, dqsy, num_samples)
+#     qsy_samples = 0
 
-    # Evaluate the function at each sample point
-    print(f"Time increment1: {mytime2 - mytime}")
-    mytime3 = time.time()
-    func_values = f(qix_samples, qiy_samples, qsx_samples, qsy_samples)
-    mytime4 = time.time()
-    print(f"Time increment2: {mytime4 - mytime3}")
+#     # Evaluate the function at each sample point
+#     print(f"Time increment1: {mytime2 - mytime}")
+#     mytime3 = time.time()
+#     func_values = f(qix_samples, qiy_samples, qsx_samples, qsy_samples)
+#     mytime4 = time.time()
+#     print(f"Time increment2: {mytime4 - mytime3}")
 
-    # Calculate the average value of the function
-    avg_value = np.mean(func_values)
+#     # Calculate the average value of the function
+#     avg_value = np.mean(func_values)
     
-    # The volume of the integration region
-    volume = (2 * dqix) * (2 * dqiy) * (2 * dqsx) * (2 * dqsy)
+#     # The volume of the integration region
+#     volume = (2 * dqix) * (2 * dqiy) * (2 * dqsx) * (2 * dqsy)
     
-    # Estimate the integral as the average value times the volume
-    integral_estimate = avg_value * volume
+#     # Estimate the integral as the average value times the volume
+#     integral_estimate = avg_value * volume
 
-    # Square the integral at the end
-    integral_estimate_sq = np.abs(integral_estimate)**2
+#     # Square the integral at the end
+#     integral_estimate_sq = np.abs(integral_estimate)**2
 
-    return integral_estimate_sq
+#     return integral_estimate_sq
 
 def grid_integration_position(f, dqsx, dqsy, dqix, dqiy, dx, dy, num_samples_position, num_samples_momentum):
     """
