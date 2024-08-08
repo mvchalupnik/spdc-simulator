@@ -18,8 +18,7 @@ def monte_carlo_integration_momentum(f, dqsx, dqsy, dqix, dqiy, num_samples):
     """
   #  np.random.seed(3) #this can smooth the result
     ## Generate random samples within the bounds [-dq, dq] for each variable
-#    MAX_BATCH_SIZE = 200000
-    MAX_BATCH_SIZE = 20000000
+    MAX_BATCH_SIZE = 200000
 
     batch_size = np.min([MAX_BATCH_SIZE, num_samples])
 
@@ -28,10 +27,10 @@ def monte_carlo_integration_momentum(f, dqsx, dqsy, dqix, dqiy, num_samples):
     average = None
     # TODO clean up and simplify
     for j in range(num_samples // batch_size):
-        qix_samples = np.random.uniform(-dqix, dqix, batch_size)
+        qix_samples = np.random.uniform(-dqsx, dqix, batch_size)
         qiy_samples = 0
 #        qiy_samples = np.random.uniform(-dqiy, dqiy, batch_size)
-        qsx_samples = np.random.uniform(-dqsx, dqsx, batch_size)
+        qsx_samples = np.random.uniform(-dqsx, dqix, batch_size)
 #        qsy_samples = np.random.uniform(-dqsy, dqsy, batch_size)
         qsy_samples = 0
 
@@ -41,10 +40,10 @@ def monte_carlo_integration_momentum(f, dqsx, dqsy, dqix, dqiy, num_samples):
 
     batch_remainder = num_samples % batch_size
     if batch_remainder != 0:
-        qix_samples = np.random.uniform(-dqix, dqix, batch_remainder)
+        qix_samples = np.random.uniform(-dqsx, dqix, batch_remainder)
         qiy_samples = 0
     #    qiy_samples = np.random.uniform(-dqiy, dqiy, batch_remainder)
-        qsx_samples = np.random.uniform(-dqsx, dqsx, batch_remainder)
+        qsx_samples = np.random.uniform(-dqsx, dqix, batch_remainder)
     #    qsy_samples = np.random.uniform(-dqsy, dqsy, batch_remainder)
         qsy_samples = 0
 
@@ -316,7 +315,6 @@ def calculate_conditional_probability(xs_pos, ys_pos, xi_pos, yi_pos, thetap, om
     rate_integrand = get_rate_integrand(xs_pos, ys_pos, thetap, omegai, omegas, simulation_parameters)
     rate_integrand_signal = functools.partial(rate_integrand, integrate_over="idler", x_pos_integrate=xi_pos, y_pos_integrate=yi_pos)
     result_signal = monte_carlo_integration_momentum(f=rate_integrand_signal, dqsx=dqsx, dqsy=dqsy, dqix=dqix, dqiy=dqiy, num_samples=num_samples)
-#    result_signal = grid_integration_momentum(f=rate_integrand_signal, dqsx=dqsx, dqsy=dqsy, dqix=dqix, dqiy=dqiy, num_samples=num_samples)
 
     # TODO right now result_idler will equal result_signal; I think this  is always true but need to check, also given different omegas, omegai
     # rate_integrand_idler = functools.partial(rate_integrand, integrate_over="signal", x_pos_integrate=xs_pos, y_pos_integrate=ys_pos)
@@ -481,7 +479,8 @@ def simulate_ring_slice(simulation_parameters):
     probs = np.transpose(np.array(z1))
 
     plt.figure(figsize=(8, 6))
-    plt.plot(x_signal, probs)
+    plt.plot(x_signal, probs, label=sweep_points)
+    plt.legend()
 
     plt.title( "Conditional probability of signal given idler at different locations on x-axis" )
 

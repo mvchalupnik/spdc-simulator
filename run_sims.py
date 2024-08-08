@@ -45,14 +45,14 @@ def main():
 
     ######### SIMULATE RING SLICE
     simulation_parameters = {
-        "num_plot_x_points": 100,
+        "num_plot_x_points": 300,
         "thetap": thetap,
         "omegap": (2 * np.pi * C) / pump_wavelength,
         "omegai": (2 * np.pi * C) / down_conversion_wavelength,
         "omegas": (2 * np.pi * C) / down_conversion_wavelength,
         "signal_x_span": 0.003,
-        "idler_x_span": 0.003,
-        "idler_x_increment": 0.0002,
+        "idler_x_span": 0.002,
+        "idler_x_increment": 0.0005,
         "momentum_span": 0.06,
         "num_momentum_integration_points": 200000,#1000000,
         "idler_y_pos": 0,
