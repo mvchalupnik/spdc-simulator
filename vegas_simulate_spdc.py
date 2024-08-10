@@ -13,125 +13,30 @@ import math
 # Constants
 C = 2.99792e8  # Speed of light, in meters per second
 
-def vegas_integration_momentum(f_real, f_imag, dqsx, dqsy, dqix, dqiy, nitn=None, neval=None):
+def vegas_integration_momentum(f_real, f_imag, dqsx, dqsy, dqix, dqiy, nitn, neval):
     """
     """
-    integ_real = vegas.Integrator([[-dqsx, dqsx], [-dqsx, dqsx], [-dqsx, dqsx], [-dqsx, dqsx]]) # TODO fix
+    time1 = time.time()
+    integ_real = vegas.Integrator([[-dqix, dqix], [-dqiy, dqiy], [-dqsx, dqsx], [-dqsy, dqsy]]) # TODO fix
     # step 1 -- adapt to f; discard results
-    integ_real(f_real, nitn=10, neval=1000)
+   # integ_real(f_real, nitn=nitn, neval=neval)
     
     # step 2 -- integ has adapted to f; keep results
-    result_real = integ_real(f_real, nitn=10, neval=1000) #TODO pass in nitn, neval
+    result_real = integ_real(f_real, nitn=nitn, neval=neval) #TODO pass in nitn, neval
 
-    integ_imag = vegas.Integrator([[-dqsx, dqsx], [-dqsx, dqsx], [-dqsx, dqsx], [-dqsx, dqsx]]) # TODO fix
-    integ_imag(f_imag, nitn=10, neval=1000)
-    result_imag = integ_imag(f_imag, nitn=10, neval=1000)
+    integ_imag = vegas.Integrator([[-dqix, dqix], [-dqiy, dqiy], [-dqsx, dqsx], [-dqsy, dqsy]])  # TODO fix
+ #   integ_imag(f_imag, nitn=nitn, neval=neval)
+    result_imag = integ_imag(f_imag, nitn=nitn, neval=neval)
 
     # Return abs(result) squared
-    # print(result_real.summary()) to debug
+    print(result_real.summary()) ##to debug
     result = result_real.mean**2 + result_imag.mean**2
+    time2 = time.time()
+    print(time2-time1)
 
     return result
 
-# def monte_carlo_integration_momentum(f, dqsx, dqsy, dqix, dqiy, num_samples):
-#     """
-#     Integrate function `f` using the Monte Carlo method along four dimensions of momentum,
-#     qx, qy for both the signal and idler photons.
-#     """
-#   #  np.random.seed(3) #this can smooth the result
-#     ## Generate random samples within the bounds [-dq, dq] for each variable
-#     MAX_BATCH_SIZE = 200000
-
-#     batch_size = np.min([MAX_BATCH_SIZE, num_samples])
-
-#     mytime = time.time()
-
-#     average = None
-#     # TODO clean up and simplify
-#     for j in range(num_samples // batch_size):
-#         qix_samples = np.random.uniform(0, dqix, batch_size)
-#         qiy_samples = 0
-# #        qiy_samples = np.random.uniform(-dqiy, dqiy, batch_size)
-#         qsx_samples = np.random.uniform(-dqsx, 0, batch_size)
-# #        qsy_samples = np.random.uniform(-dqsy, dqsy, batch_size)
-#         qsy_samples = 0
-
-#         func_values = f(qix_samples, qiy_samples, qsx_samples, qsy_samples)
-#         average = np.mean(func_values) if j == 0 else np.mean([average, np.mean(func_values)]) # Make this into a list for parallelization
-
-
-#     batch_remainder = num_samples % batch_size
-#     if batch_remainder != 0:
-#         qix_samples = np.random.uniform(0, dqix, batch_remainder)
-#         qiy_samples = 0
-#     #    qiy_samples = np.random.uniform(-dqiy, dqiy, batch_remainder)
-#         qsx_samples = np.random.uniform(-dqsx, 0, batch_remainder)
-#     #    qsy_samples = np.random.uniform(-dqsy, dqsy, batch_remainder)
-#         qsy_samples = 0
-
-#         func_values = f(qix_samples, qiy_samples, qsx_samples, qsy_samples)
-#         average = np.mean([average, np.mean(func_values)])
-#     mytime2 = time.time()
-
-#     # Evaluate the function at each sample point
-#  #   print(f"Time increment1: {mytime2 - mytime}")
-# #    mytime3 = time.time()
-# #    func_values = f(qix_samples, qiy_samples, qsx_samples, qsy_samples)
-# #    mytime4 = time.time()
-# #    print(f"Time increment2: {mytime4 - mytime3}")
-
-# #    # Calculate the average value of the function
-# #    avg_value = np.mean(func_values)
-    
-#     # The volume of the integration region
-#     volume = (2 * dqix) * (2 * dqiy) * (2 * dqsx) * (2 * dqsy)
-    
-#     # Estimate the integral as the average value times the volume
-#     integral_estimate = average * volume
-
-#     # Square the integral at the end
-#     integral_estimate_sq = np.abs(integral_estimate)**2
-
-#     return integral_estimate_sq
-
-# def fdsfdsmonte_carlo_integration_momentum(f, dqsx, dqsy, dqix, dqiy, num_samples):
-#     """
-#     Integrate function `f` using the Monte Carlo method along four dimensions of momentum,
-#     qx, qy for both the signal and idler photons.
-#     """
-#   #  np.random.seed(3) #this can smooth the result
-#     ## Generate random samples within the bounds [-dq, dq] for each variable
-#     mytime = time.time()
-#     qix_samples = np.random.uniform(-dqix, dqix, num_samples)
-#     mytime2 = time.time()
-#     qiy_samples = 0
-# #    qiy_samples = np.random.uniform(-dqiy, dqiy, num_samples)
-#     qsx_samples = np.random.uniform(-dqsx, dqsx, num_samples)
-# #    qsy_samples = np.random.uniform(-dqsy, dqsy, num_samples)
-#     qsy_samples = 0
-
-#     # Evaluate the function at each sample point
-#     print(f"Time increment1: {mytime2 - mytime}")
-#     mytime3 = time.time()
-#     func_values = f(qix_samples, qiy_samples, qsx_samples, qsy_samples)
-#     mytime4 = time.time()
-#     print(f"Time increment2: {mytime4 - mytime3}")
-
-#     # Calculate the average value of the function
-#     avg_value = np.mean(func_values)
-    
-#     # The volume of the integration region
-#     volume = (2 * dqix) * (2 * dqiy) * (2 * dqsx) * (2 * dqsy)
-    
-#     # Estimate the integral as the average value times the volume
-#     integral_estimate = avg_value * volume
-
-#     # Square the integral at the end
-#     integral_estimate_sq = np.abs(integral_estimate)**2
-
-#     return integral_estimate_sq
-
-def grid_integration_position(f_real, f_imag, dqsx, dqsy, dqix, dqiy, dx, dy, num_samples_position, nitn=None):
+def grid_integration_position(f_real, f_imag, dqsx, dqsy, dqix, dqiy, dx, dy, num_samples_position, nitn, neval):
     """
     Integrate along x and y. First pass function to be integrated along four dimensions
     of momentum (signal qx and qy, idler qx and qy).
@@ -148,7 +53,7 @@ def grid_integration_position(f_real, f_imag, dqsx, dqsy, dqix, dqiy, dx, dy, nu
         g_real = functools.partial(f_real, x_pos_integrate=x_sample, y_pos_integrate=y_sample)
         g_imag = functools.partial(f_imag, x_pos_integrate=x_sample, y_pos_integrate=y_sample)
 
-        func_values[n] = vegas_integration_momentum(g_real, g_imag, dqsx, dqsy, dqix, dqiy)
+        func_values[n] = vegas_integration_momentum(g_real, g_imag, dqsx, dqsy, dqix, dqiy, nitn=nitn, neval=neval)
 
     # Calculate the average value of the function
     avg_value = np.mean(func_values)
@@ -337,6 +242,7 @@ def get_rate_integrand_imag(x_pos, y_pos, thetap, omegai, omegas, simulation_par
 
     def rate_integrand(q, x_pos_integrate, y_pos_integrate, integrate_over):
         qix, qiy, qsx, qsy = q
+
         if integrate_over == "signal": # TODO fix to be less confusing
             # Fix idler, integrate over signal
             xs_pos = x_pos_integrate
@@ -375,7 +281,8 @@ def calculate_conditional_probability(xs_pos, ys_pos, xi_pos, yi_pos, thetap, om
     :param yi_pos: Location of idler photon in the y direction a distance z away from the crystal
     """
     momentum_span = simulation_parameters.get("momentum_span")
-    num_samples = simulation_parameters["num_momentum_integration_points"]
+    num_itn = simulation_parameters["nitn"]
+    num_eval = simulation_parameters["neval"]
     dqix = (omegai / C) * momentum_span
     dqiy = (omegai / C) * momentum_span
     dqsx = (omegas / C) * momentum_span
@@ -386,7 +293,8 @@ def calculate_conditional_probability(xs_pos, ys_pos, xi_pos, yi_pos, thetap, om
     rate_integrand_signal_real = functools.partial(rate_integrand_real, integrate_over="idler", x_pos_integrate=xi_pos, y_pos_integrate=yi_pos)
     rate_integrand_signal_imag = functools.partial(rate_integrand_imag, integrate_over="idler", x_pos_integrate=xi_pos, y_pos_integrate=yi_pos)
 
-    result_signal = vegas_integration_momentum(f_real=rate_integrand_signal_real, f_imag=rate_integrand_signal_imag, dqsx=dqsx, dqsy=dqsy, dqix=dqix, dqiy=dqiy)
+    result_signal = vegas_integration_momentum(f_real=rate_integrand_signal_real, f_imag=rate_integrand_signal_imag,
+                                               dqsx=dqsx, dqsy=dqsy, dqix=dqix, dqiy=dqiy, nitn=num_itn, neval=num_eval)
 
    # result_signal = monte_carlo_integration_momentum(f=rate_integrand_signal, dqsx=dqsx, dqsy=dqsy, dqix=dqix, dqiy=dqiy, num_samples=num_samples)
 #    result_signal = grid_integration_momentum(f=rate_integrand_signal, dqsx=dqsx, dqsy=dqsy, dqix=dqix, dqiy=dqiy, num_samples=num_samples)
@@ -413,7 +321,9 @@ def calculate_pair_generation_rate(x_pos, y_pos, thetap, omegai, omegas, dx, dy,
     dqiy = (omegai / C) * momentum_span
     dqsx = (omegas / C) * momentum_span
     dqsy = (omegas / C) * momentum_span
-    num_samples_monte_carlo = simulation_parameters["num_momentum_integration_points"]
+    num_itn = simulation_parameters["nitn"]
+    num_eval = simulation_parameters["neval"]
+
     grid_integration_size = simulation_parameters["grid_integration_size"]
 
     rate_integrand_real = get_rate_integrand_real(x_pos, y_pos, thetap, omegai, omegas, simulation_parameters)
@@ -422,7 +332,7 @@ def calculate_pair_generation_rate(x_pos, y_pos, thetap, omegai, omegas, dx, dy,
     rate_integrand_imag_wrt = functools.partial(rate_integrand_imag, integrate_over=integrate_over)
 
     result = grid_integration_position(f_real=rate_integrand_real_wrt, f_imag=rate_integrand_imag_wrt, dqsx=dqsx, dqsy=dqsy, dqix=dqix, dqiy=dqiy, dx=dx, dy=dy,
-                                       num_samples_position=grid_integration_size, num_samples_momentum=num_samples_monte_carlo)
+                                       num_samples_position=grid_integration_size, nitn=num_itn, neval=num_eval)
 
     return result
 
@@ -610,7 +520,6 @@ def simulate_rings(simulation_parameters):
     omegai = simulation_parameters["omegai"] # Idler frequency (Radians / sec)
     omegas = simulation_parameters["omegas"] # Signal frequency (Radians / sec)
     momentum_span = simulation_parameters["momentum_span"] # Extent of span to integrate in momentum space over across x axis and in y axis for both signal and idler (fraction of omega / C)
-    num_momentum_integration_points = simulation_parameters["num_momentum_integration_points"]  # Number of points to integrate over in momentum space
     grid_integration_size = simulation_parameters["grid_integration_size"] # Size of square root of grid for integration in real space (todo improve name)
     pump_waist_size = simulation_parameters["pump_waist_size"] # Size of pump beam waist
     pump_waist_distance = simulation_parameters["pump_waist_distance"] # Distance of pump waist from crystal (meters)

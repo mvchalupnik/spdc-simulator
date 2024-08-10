@@ -24,8 +24,8 @@ def main():
     ######### SIMULATE RING MOMENTUM
 
     simulation_parameters = {
-        "num_plot_qx_points": 22,
-        "num_plot_qy_points": 22,
+        "num_plot_qx_points": 25,
+        "num_plot_qy_points": 25,
         "thetap": thetap,
         "omegap": (2 * np.pi * C) / pump_wavelength,
         "omegai": (2 * np.pi * C) / down_conversion_wavelength,
@@ -61,7 +61,7 @@ def main():
         "pump_waist_distance": d,
         "z_pos": z_pos,
         "crystal_length": crystal_length,
-        "simulation_cores": 1,
+        "simulation_cores": 4,
         "save_directory": dir_string,
         "random_seed": 1
     }

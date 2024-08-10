@@ -151,7 +151,7 @@ def adaptive_integration_momentum(f, dqsx, dqsy, dqix, dqiy, num_samples_coarse,
 #    import pdb; pdb.set_trace()
     # Find all absolute value squared values of `func_values` greater than a threshold
     sorted_squared_values = np.sort(np.abs(func_values))
-    threshold_index = int(total_number_samples_coarse * 0.002) # Can modify 0.005, TODO
+    threshold_index = int(total_number_samples_coarse * 0.001) # Can modify 0.005, TODO
     threshold = sorted_squared_values[-threshold_index]
     thresholded_coord_pairs_indices = np.where(func_values > threshold)[0]
     thresholded_coord_pairs = coord_pairs[thresholded_coord_pairs_indices]
@@ -408,7 +408,7 @@ def calculate_conditional_probability(xs_pos, ys_pos, xi_pos, yi_pos, thetap, om
     rate_integrand = get_rate_integrand(xs_pos, ys_pos, thetap, omegai, omegas, simulation_parameters)
     rate_integrand_signal = functools.partial(rate_integrand, integrate_over="idler", x_pos_integrate=xi_pos, y_pos_integrate=yi_pos)
 #    result_signal = monte_carlo_integration_momentum(f=rate_integrand_signal, dqsx=dqsx, dqsy=dqsy, dqix=dqix, dqiy=dqiy, num_samples=num_samples)
-    result_signal = adaptive_integration_momentum(f=rate_integrand_signal, dqsx=dqsx, dqsy=dqsy, dqix=dqix, dqiy=dqiy, num_samples_coarse=22, num_samples_fine=40000)
+    result_signal = adaptive_integration_momentum(f=rate_integrand_signal, dqsx=dqsx, dqsy=dqsy, dqix=dqix, dqiy=dqiy, num_samples_coarse=25, num_samples_fine=40000)
 
     # TODO right now result_idler will equal result_signal; I think this  is always true but need to check, also given different omegas, omegai
     # rate_integrand_idler = functools.partial(rate_integrand, integrate_over="signal", x_pos_integrate=xs_pos, y_pos_integrate=ys_pos)

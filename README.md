@@ -9,3 +9,5 @@ TODO:
 - Remove unnecessary imports and other cleaning
 
 Either sampling issue: not enough points; or scaling issue with carrier wave.
+
+TODO have filename include the date
