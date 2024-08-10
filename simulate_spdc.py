@@ -112,28 +112,50 @@ def adaptive_integration_momentum(f, dqsx, dqsy, dqix, dqiy, num_samples_coarse,
     # First, generate a coarse grid within the supplied bounds [-dqsx, dqsx], [-dqix, dqix],
     # [-dqsy, dqsy], [-dqiy, dqiy] with grid size equal to num_samples_coarse in each dimension.
     # Note: num_samples_coarse should not be too large as grid scales by num_samples_coarse^4.
+    time1 = time.time()
     dqsx_samples = np.linspace(-dqsx, dqsx, num_samples_coarse)
     dqsy_samples = np.linspace(-dqsy, dqsy, num_samples_coarse)
     dqix_samples = np.linspace(-dqix, dqix, num_samples_coarse)
     dqiy_samples = np.linspace(-dqiy, dqiy, num_samples_coarse)
-    coord_pairs = np.asarray(list(itertools.product(dqix_samples, dqiy_samples, dqsx_samples, dqsy_samples)))
+    
 
-    # Evaluate the function at each sample point
+    # coord_pairs = np.asarray(list(itertools.product(dqix_samples, dqiy_samples, dqsx_samples, dqsy_samples)))
+
+    # # Evaluate the function at each sample point
     total_number_samples_coarse = num_samples_coarse**4
-    func_values = np.zeros(total_number_samples_coarse, dtype='complex128') # Technically won't be complex here
-    for n in range(total_number_samples_coarse):
-        dqix_sample, dqiy_sample, dqsx_sample, dqsy_sample = coord_pairs[n] # Maybe there is a better way to do this, using the iter object
-        func_values[n] = f(dqix_sample, dqiy_sample, dqsx_sample, dqsy_sample)
+    # func_values = np.zeros(total_number_samples_coarse, dtype='complex128') # Technically won't be complex here
+    timep5 = time.time()
 
+    # for n in range(total_number_samples_coarse):
+    #     dqix_sample, dqiy_sample, dqsx_sample, dqsy_sample = coord_pairs[n] # Maybe there is a better way to do this, using the iter object
+    #     func_values[n] = f(dqix_sample, dqiy_sample, dqsx_sample, dqsy_sample)
+    
+
+
+    # Generate the coordinate grid using meshgrid
+    dqix_grid, dqiy_grid, dqsx_grid, dqsy_grid = np.meshgrid(dqix_samples, dqiy_samples, dqsx_samples, dqsy_samples, indexing='ij')
+
+    # Flatten the grids
+    dqix_flat = dqix_grid.ravel()
+    dqiy_flat = dqiy_grid.ravel()
+    dqsx_flat = dqsx_grid.ravel()
+    dqsy_flat = dqsy_grid.ravel()
+
+    # Vectorized evaluation of the function f over the flattened grids
+    func_values = f(dqix_flat, dqiy_flat, dqsx_flat, dqsy_flat)
+
+    # Combine the flattened grids into a single array of coordinate pairs
+    coord_pairs = np.stack((dqix_flat, dqiy_flat, dqsx_flat, dqsy_flat), axis=-1)
+
+
+#    import pdb; pdb.set_trace()
     # Find all absolute value squared values of `func_values` greater than a threshold
     sorted_squared_values = np.sort(np.abs(func_values))
-    threshold_index = int(total_number_samples_coarse * 0.005) # Can modify 0.005, TODO
+    threshold_index = int(total_number_samples_coarse * 0.002) # Can modify 0.005, TODO
     threshold = sorted_squared_values[-threshold_index]
     thresholded_coord_pairs_indices = np.where(func_values > threshold)[0]
     thresholded_coord_pairs = coord_pairs[thresholded_coord_pairs_indices]
-    import pdb; pdb.set_trace()
-
-
+#    import pdb; pdb.set_trace()
     # Next, do a finer sampling around the points which passed the threshold.
     dqsx_grid_width = (2 * dqsx) / (num_samples_coarse - 1)
     dqsy_grid_width = (2 * dqsy) / (num_samples_coarse - 1)
@@ -147,18 +169,19 @@ def adaptive_integration_momentum(f, dqsx, dqsy, dqix, dqiy, num_samples_coarse,
     # distribution. Here, the pdf is a uniform distribution with bounds set near
     # the thresholded points. We make the approximation that the portions of the integral
     # which are not near the thresholded points will sum to approximately zero compared
-    # to the rest of the integral (to avoid dividing by a pdf).
+    # to the rest of the integral (to avoid dividing by a pdf, which costs time).
+    time2 = time.time()
 
     coarse_coords_indices = np.random.choice(range(len(thresholded_coord_pairs)), size=num_samples_fine, replace=True)
     coarse_coords = thresholded_coord_pairs[coarse_coords_indices] #TODO they aren't pairs, rename
-
-    dqsx_samples_fine = np.random.uniform(-0.5 * dqsx_grid_width, 0.5 * dqsx_grid_width, num_samples_fine) + \
+    grid_width_fraction = 0.1
+    dqsx_samples_fine = np.random.uniform(-grid_width_fraction * dqsx_grid_width, grid_width_fraction * dqsx_grid_width, num_samples_fine) + \
                         coarse_coords[:, 0]
-    dqsy_samples_fine = np.random.uniform(-0.5 * dqsy_grid_width, 0.5 * dqsy_grid_width, num_samples_fine) + \
+    dqsy_samples_fine = np.random.uniform(-grid_width_fraction * dqsy_grid_width, grid_width_fraction * dqsy_grid_width, num_samples_fine) + \
                         coarse_coords[:, 1]
-    dqix_samples_fine = np.random.uniform(-0.5 * dqix_grid_width, 0.5 * dqix_grid_width, num_samples_fine) + \
+    dqix_samples_fine = np.random.uniform(-grid_width_fraction * dqix_grid_width, grid_width_fraction * dqix_grid_width, num_samples_fine) + \
                         coarse_coords[:, 2]
-    dqiy_samples_fine = np.random.uniform(-0.5 * dqiy_grid_width, 0.5 * dqiy_grid_width, num_samples_fine) + \
+    dqiy_samples_fine = np.random.uniform(-grid_width_fraction * dqiy_grid_width, grid_width_fraction * dqiy_grid_width, num_samples_fine) + \
                         coarse_coords[:, 3]
 
     thresholded_func_values = f(dqix_samples_fine, dqiy_samples_fine, dqsx_samples_fine, dqsy_samples_fine)
@@ -171,8 +194,13 @@ def adaptive_integration_momentum(f, dqsx, dqsy, dqix, dqiy, num_samples_coarse,
     
     # Estimate the integral as the average value times the volume
     integral_estimate = avg_value * volume
-    
-    return integral_estimate
+    time3 = time.time()
+    # print(timep5-time1)
+    # print(time2-timep5)
+    # print(time3-time2)
+
+    # Return the absolute value of the integral squared
+    return np.abs(integral_estimate)**2
 
 def grid_integration_position(f, dqix, dqiy, dqsx, dqsy, dx, dy, num_samples_position, num_samples_momentum):
     """
@@ -185,12 +213,12 @@ def grid_integration_position(f, dqix, dqiy, dqsx, dqsy, dx, dy, num_samples_pos
     coord_pairs = list(itertools.product(x_samples, y_samples))
 
     # Evaluate the function at each sample point
-    func_values = np.zeros(len(coord_pairs), dtype='complex128') # Technically won't be complex here
+    func_values = np.zeros(len(coord_pairs), dtype='complex128') # Technically won't be complex here, also TODO rewrite faster way with ravel
     for n in range(len(coord_pairs)):
         x_sample, y_sample = coord_pairs[n]
         g = functools.partial(f, x_pos_integrate=x_sample, y_pos_integrate=y_sample)
         func_values[n] = monte_carlo_integration_momentum(g, dqsx, dqsy, dqix, dqiy, num_samples_momentum)
-#        func_values[n] = grid_integration_momentum(g, dqsx, dqsy, dqix, dqiy, num_samples_momentum)
+ #       func_values[n] = adaptive_integration_momentum(f=rate_integrand_signal, dqsx=dqsx, dqsy=dqsy, dqix=dqix, dqiy=dqiy, num_samples_coarse=21, num_samples_fine=40000)
 
     # Calculate the average value of the function
     avg_value = np.mean(func_values)
@@ -380,7 +408,7 @@ def calculate_conditional_probability(xs_pos, ys_pos, xi_pos, yi_pos, thetap, om
     rate_integrand = get_rate_integrand(xs_pos, ys_pos, thetap, omegai, omegas, simulation_parameters)
     rate_integrand_signal = functools.partial(rate_integrand, integrate_over="idler", x_pos_integrate=xi_pos, y_pos_integrate=yi_pos)
 #    result_signal = monte_carlo_integration_momentum(f=rate_integrand_signal, dqsx=dqsx, dqsy=dqsy, dqix=dqix, dqiy=dqiy, num_samples=num_samples)
-    result_signal = adaptive_integration_momentum(f=rate_integrand_signal, dqsx=dqsx, dqsy=dqsy, dqix=dqix, dqiy=dqiy, num_samples_coarse=21, num_samples_fine=20000)
+    result_signal = adaptive_integration_momentum(f=rate_integrand_signal, dqsx=dqsx, dqsy=dqsy, dqix=dqix, dqiy=dqiy, num_samples_coarse=22, num_samples_fine=40000)
 
     # TODO right now result_idler will equal result_signal; I think this  is always true but need to check, also given different omegas, omegai
     # rate_integrand_idler = functools.partial(rate_integrand, integrate_over="signal", x_pos_integrate=xs_pos, y_pos_integrate=ys_pos)

@@ -24,8 +24,8 @@ def main():
     ######### SIMULATE RING MOMENTUM
 
     simulation_parameters = {
-        "num_plot_qx_points": 300,
-        "num_plot_qy_points": 300,
+        "num_plot_qx_points": 22,
+        "num_plot_qy_points": 22,
         "thetap": thetap,
         "omegap": (2 * np.pi * C) / pump_wavelength,
         "omegai": (2 * np.pi * C) / down_conversion_wavelength,
@@ -34,7 +34,7 @@ def main():
         "signal_y_pos": 0,
         "idler_x_pos": 0,
         "idler_y_pos": 0,
-        "momentum_span": 0.06,
+        "momentum_span": 0.05,
         "pump_waist_size": w0,
         "pump_waist_distance": d,
         "z_pos": z_pos,
@@ -45,15 +45,15 @@ def main():
 
     ######### SIMULATE RING SLICE
     simulation_parameters = {
-        "num_plot_x_points": 300,
+        "num_plot_x_points": 300, #300
         "thetap": thetap,
         "omegap": (2 * np.pi * C) / pump_wavelength,
         "omegai": (2 * np.pi * C) / down_conversion_wavelength,
         "omegas": (2 * np.pi * C) / down_conversion_wavelength,
         "signal_x_span": 0.003,
-        "idler_x_span": 0.002,
-        "idler_x_increment": 0.0005,
-        "momentum_span": 0.06,
+        "idler_x_span": 0.003,
+        "idler_x_increment": 0.0016,
+        "momentum_span": 0.05,
         "num_momentum_integration_points": 200000,#1000000,
         "idler_y_pos": 0,
         "signal_y_pos": 0,
@@ -61,7 +61,7 @@ def main():
         "pump_waist_distance": d,
         "z_pos": z_pos,
         "crystal_length": crystal_length,
-        "simulation_cores": 4,
+        "simulation_cores": 1,
         "save_directory": dir_string,
         "random_seed": 1
     }
