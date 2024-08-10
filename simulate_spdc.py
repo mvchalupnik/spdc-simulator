@@ -12,7 +12,8 @@ from file_utils import get_current_time
 C = 2.99792e8  # Speed of light, in meters per second
 
 
-def adaptive_integration_momentum(f, dqsx, dqsy, dqix, dqiy, num_samples_coarse, num_samples_fine):
+def adaptive_integration_momentum(f, dqsx, dqsy, dqix, dqiy, num_samples_coarse, num_samples_fine,
+                                  fraction_of_coarse_points, grid_width_fraction):
     """
     Use an adaptive technique to integrate along four dimensions of momentum space.
     """
@@ -48,7 +49,7 @@ def adaptive_integration_momentum(f, dqsx, dqsy, dqix, dqiy, num_samples_coarse,
 #    import pdb; pdb.set_trace()
     # Find all absolute value squared values of `func_values` greater than a threshold
     sorted_squared_values = np.sort(np.abs(func_values))
-    fraction_of_coarse_points = 0.001 # Fraction of coarse points to keep
+  #  fraction_of_coarse_points = 0.001 # Fraction of coarse points to keep
     threshold_index = int(total_number_samples_coarse * fraction_of_coarse_points)
     threshold = sorted_squared_values[-threshold_index]
     thresholded_coord_pairs_indices = np.where(func_values > threshold)[0]
@@ -72,7 +73,7 @@ def adaptive_integration_momentum(f, dqsx, dqsy, dqix, dqiy, num_samples_coarse,
 
     coarse_coords_indices = np.random.choice(range(len(thresholded_coord_pairs)), size=num_samples_fine, replace=True)
     coarse_coords = thresholded_coord_pairs[coarse_coords_indices] #TODO they aren't pairs, rename
-    grid_width_fraction = 0.1
+ #   grid_width_fraction = 0.1
     dqsx_samples_fine = np.random.uniform(-grid_width_fraction * dqsx_grid_width, grid_width_fraction * dqsx_grid_width, num_samples_fine) + \
                         coarse_coords[:, 0]
     dqsy_samples_fine = np.random.uniform(-grid_width_fraction * dqsy_grid_width, grid_width_fraction * dqsy_grid_width, num_samples_fine) + \
@@ -101,7 +102,8 @@ def adaptive_integration_momentum(f, dqsx, dqsy, dqix, dqiy, num_samples_coarse,
     return np.abs(integral_estimate)**2
 
 def grid_integration_position(f, dqix, dqiy, dqsx, dqsy, dx, dy, num_samples_position,
-                              num_samples_coarse_momentum, num_samples_fine_momentum):
+                              num_samples_coarse_momentum, num_samples_fine_momentum,
+                              fraction_of_coarse_points, grid_width_fraction):
     """
     Integrate along x and y. First pass function to be integrated along four dimensions
     of momentum (signal qx and qy, idler qx and qy).
@@ -120,7 +122,9 @@ def grid_integration_position(f, dqix, dqiy, dqsx, dqsy, dx, dy, num_samples_pos
         func_values[n] = adaptive_integration_momentum(f=rate_integrand_signal,
                                                        dqsx=dqsx, dqsy=dqsy, dqix=dqix,
                                                        dqiy=dqiy, num_samples_coarse=num_samples_coarse_momentum,
-                                                       num_samples_fine=num_samples_fine_momentum)
+                                                       num_samples_fine=num_samples_fine_momentum, 
+                                                       fraction_of_coarse_points=fraction_of_coarse_points,
+                                                       grid_width_fraction=grid_width_fraction)
 
     # Calculate the average value of the function
     avg_value = np.mean(func_values)
@@ -301,6 +305,11 @@ def calculate_conditional_probability(xs_pos, ys_pos, xi_pos, yi_pos, thetap, om
     :param yi_pos: Location of idler photon in the y direction a distance z away from the crystal
     """
     momentum_span = simulation_parameters.get("momentum_span")
+    fraction_of_coarse_points = simulation_parameters["fraction_of_coarse_points_momentum"]
+    grid_width_fraction = simulation_parameters["grid_width_fraction_momentum"]
+    num_samples_coarse_momentum = simulation_parameters["num_samples_coarse_momentum"]
+    num_samples_fine_momentum = simulation_parameters["num_samples_fine_momentum"]
+
     dqix = (omegai / C) * momentum_span
     dqiy = (omegai / C) * momentum_span
     dqsx = (omegas / C) * momentum_span
@@ -309,7 +318,10 @@ def calculate_conditional_probability(xs_pos, ys_pos, xi_pos, yi_pos, thetap, om
     rate_integrand = get_rate_integrand(xs_pos, ys_pos, thetap, omegai, omegas, simulation_parameters)
     rate_integrand_signal = functools.partial(rate_integrand, integrate_over="idler", x_pos_integrate=xi_pos, y_pos_integrate=yi_pos)
     result_signal = adaptive_integration_momentum(f=rate_integrand_signal, dqsx=dqsx, dqsy=dqsy,
-                                                  dqix=dqix, dqiy=dqiy, num_samples_coarse=25, num_samples_fine=40000)
+                                                  dqix=dqix, dqiy=dqiy, num_samples_coarse=num_samples_coarse_momentum,
+                                                  num_samples_fine=num_samples_fine_momentum,
+                                                  fraction_of_coarse_points=fraction_of_coarse_points,
+                                                  grid_width_fraction=grid_width_fraction)
 
     # TODO right now result_idler will equal result_signal; I think this  is always true but need to check, also given different omegas, omegai
     # rate_integrand_idler = functools.partial(rate_integrand, integrate_over="signal", x_pos_integrate=xs_pos, y_pos_integrate=ys_pos)
@@ -336,13 +348,17 @@ def calculate_pair_generation_rate(x_pos, y_pos, thetap, omegai, omegas, dx, dy,
     grid_integration_size = simulation_parameters["grid_integration_size"]
     num_samples_coarse_momentum = simulation_parameters["num_samples_coarse_momentum"]
     num_samples_fine_momentum = simulation_parameters["num_samples_fine_momentum"]
+    fraction_of_coarse_points = simulation_parameters["fraction_of_coarse_points_momentum"]
+    grid_width_fraction = simulation_parameters["grid_width_fraction_momentum"]
 
     rate_integrand = get_rate_integrand(x_pos, y_pos, thetap, omegai, omegas, simulation_parameters)
     rate_integrand_wrt = functools.partial(rate_integrand, integrate_over=integrate_over)
     result = grid_integration_position(f=rate_integrand_wrt, dqix=dqix, dqiy=dqiy, dqsx=dqsx, dqsy=dqsy, dx=dx, dy=dy,
                                        num_samples_position=grid_integration_size,
                                        num_samples_coarse_momentum=num_samples_coarse_momentum,
-                                       num_samples_fine_momentum=num_samples_fine_momentum)
+                                       num_samples_fine_momentum=num_samples_fine_momentum,
+                                       fraction_of_coarse_points=fraction_of_coarse_points,
+                                       grid_width_fraction=grid_width_fraction)
 
     return result
 
