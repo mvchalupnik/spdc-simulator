@@ -68,42 +68,6 @@ def monte_carlo_integration_momentum(f, dqsx, dqsy, dqix, dqiy, num_samples):
 
     return integral_estimate_sq
 
-# def fdsfdsmonte_carlo_integration_momentum(f, dqsx, dqsy, dqix, dqiy, num_samples):
-#     """
-#     Integrate function `f` using the Monte Carlo method along four dimensions of momentum,
-#     qx, qy for both the signal and idler photons.
-#     """
-#   #  np.random.seed(3) #this can smooth the result
-#     ## Generate random samples within the bounds [-dq, dq] for each variable
-#     mytime = time.time()
-#     qix_samples = np.random.uniform(-dqix, dqix, num_samples)
-#     mytime2 = time.time()
-#     qiy_samples = 0
-# #    qiy_samples = np.random.uniform(-dqiy, dqiy, num_samples)
-#     qsx_samples = np.random.uniform(-dqsx, dqsx, num_samples)
-# #    qsy_samples = np.random.uniform(-dqsy, dqsy, num_samples)
-#     qsy_samples = 0
-
-#     # Evaluate the function at each sample point
-#     print(f"Time increment1: {mytime2 - mytime}")
-#     mytime3 = time.time()
-#     func_values = f(qix_samples, qiy_samples, qsx_samples, qsy_samples)
-#     mytime4 = time.time()
-#     print(f"Time increment2: {mytime4 - mytime3}")
-
-#     # Calculate the average value of the function
-#     avg_value = np.mean(func_values)
-    
-#     # The volume of the integration region
-#     volume = (2 * dqix) * (2 * dqiy) * (2 * dqsx) * (2 * dqsy)
-    
-#     # Estimate the integral as the average value times the volume
-#     integral_estimate = avg_value * volume
-
-#     # Square the integral at the end
-#     integral_estimate_sq = np.abs(integral_estimate)**2
-
-#     return integral_estimate_sq
 
 def adaptive_integration_momentum(f, dqsx, dqsy, dqix, dqiy, num_samples_coarse, num_samples_fine):
     """
