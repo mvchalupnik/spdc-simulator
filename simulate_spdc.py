@@ -11,63 +11,6 @@ from file_utils import get_current_time
 # Constants
 C = 2.99792e8  # Speed of light, in meters per second
 
-def monte_carlo_integration_momentum(f, dqsx, dqsy, dqix, dqiy, num_samples):
-    """
-    Integrate function `f` using the Monte Carlo method along four dimensions of momentum,
-    qx, qy for both the signal and idler photons.
-    """
-  #  np.random.seed(3) #this can smooth the result
-    ## Generate random samples within the bounds [-dq, dq] for each variable
-    MAX_BATCH_SIZE = 200000
-
-    batch_size = np.min([MAX_BATCH_SIZE, num_samples])
-
-    average = None
-    # TODO clean up and simplify
-    for j in range(num_samples // batch_size):
-        qix_samples = np.random.uniform(0.7*dqix, dqix, batch_size)
-        qiy_samples = 0
-       # qiy_samples = np.random.uniform(-dqiy, dqiy, batch_size)
-        qsx_samples = np.random.uniform(-dqix, -0.7*dqsx, batch_size)
-     #   qsy_samples = np.random.uniform(-dqsy, dqsy, batch_size)
-        qsy_samples = 0
-
-        func_values = f(qix_samples, qiy_samples, qsx_samples, qsy_samples)
-        average = np.mean(func_values) if j == 0 else np.mean([average, np.mean(func_values)]) # Make this into a list for parallelization
-
-
-    batch_remainder = num_samples % batch_size
-    if batch_remainder != 0:
-        qix_samples = np.random.uniform(0.7*dqix, dqix, batch_remainder)
-        qiy_samples = 0
-     #   qiy_samples = np.random.uniform(-dqiy, dqiy, batch_remainder)
-        qsx_samples = np.random.uniform(-dqix, -0.7*dqsx, batch_remainder)
-    #    qsy_samples = np.random.uniform(-dqsy, dqsy, batch_remainder)
-        qsy_samples = 0
-
-        func_values = f(qix_samples, qiy_samples, qsx_samples, qsy_samples)
-        average = np.mean([average, np.mean(func_values)])
-
-    # Evaluate the function at each sample point
- #   print(f"Time increment1: {mytime2 - mytime}")
-#    mytime3 = time.time()
-#    func_values = f(qix_samples, qiy_samples, qsx_samples, qsy_samples)
-#    mytime4 = time.time()
-#    print(f"Time increment2: {mytime4 - mytime3}")
-
-#    # Calculate the average value of the function
-#    avg_value = np.mean(func_values)
-    # The volume of the integration region
-    volume = (2 * dqix) * (2 * dqiy) * (2 * dqsx) * (2 * dqsy)
-    
-    # Estimate the integral as the average value times the volume
-    integral_estimate = average * volume
-
-    # Square the integral at the end
-    integral_estimate_sq = np.abs(integral_estimate)**2
-
-    return integral_estimate_sq
-
 
 def adaptive_integration_momentum(f, dqsx, dqsy, dqix, dqiy, num_samples_coarse, num_samples_fine):
     """
@@ -82,22 +25,13 @@ def adaptive_integration_momentum(f, dqsx, dqsy, dqix, dqiy, num_samples_coarse,
     dqix_samples = np.linspace(-dqix, dqix, num_samples_coarse)
     dqiy_samples = np.linspace(-dqiy, dqiy, num_samples_coarse)
     
-
-    # coord_pairs = np.asarray(list(itertools.product(dqix_samples, dqiy_samples, dqsx_samples, dqsy_samples)))
-
-    # # Evaluate the function at each sample point
+    # Evaluate the function at each sample point
     total_number_samples_coarse = num_samples_coarse**4
-    # func_values = np.zeros(total_number_samples_coarse, dtype='complex128') # Technically won't be complex here
     timep5 = time.time()
 
-    # for n in range(total_number_samples_coarse):
-    #     dqix_sample, dqiy_sample, dqsx_sample, dqsy_sample = coord_pairs[n] # Maybe there is a better way to do this, using the iter object
-    #     func_values[n] = f(dqix_sample, dqiy_sample, dqsx_sample, dqsy_sample)
-    
-
-
     # Generate the coordinate grid using meshgrid
-    dqix_grid, dqiy_grid, dqsx_grid, dqsy_grid = np.meshgrid(dqix_samples, dqiy_samples, dqsx_samples, dqsy_samples, indexing='ij')
+    dqix_grid, dqiy_grid, dqsx_grid, dqsy_grid = np.meshgrid(dqix_samples, dqiy_samples, dqsx_samples, dqsy_samples,
+                                                             indexing='ij')
 
     # Flatten the grids
     dqix_flat = dqix_grid.ravel()
@@ -111,11 +45,11 @@ def adaptive_integration_momentum(f, dqsx, dqsy, dqix, dqiy, num_samples_coarse,
     # Combine the flattened grids into a single array of coordinate pairs
     coord_pairs = np.stack((dqix_flat, dqiy_flat, dqsx_flat, dqsy_flat), axis=-1)
 
-
 #    import pdb; pdb.set_trace()
     # Find all absolute value squared values of `func_values` greater than a threshold
     sorted_squared_values = np.sort(np.abs(func_values))
-    threshold_index = int(total_number_samples_coarse * 0.001) # Can modify 0.005, TODO
+    fraction_of_coarse_points = 0.001 # Fraction of coarse points to keep
+    threshold_index = int(total_number_samples_coarse * fraction_of_coarse_points)
     threshold = sorted_squared_values[-threshold_index]
     thresholded_coord_pairs_indices = np.where(func_values > threshold)[0]
     thresholded_coord_pairs = coord_pairs[thresholded_coord_pairs_indices]
@@ -166,7 +100,8 @@ def adaptive_integration_momentum(f, dqsx, dqsy, dqix, dqiy, num_samples_coarse,
     # Return the absolute value of the integral squared
     return np.abs(integral_estimate)**2
 
-def grid_integration_position(f, dqix, dqiy, dqsx, dqsy, dx, dy, num_samples_position, num_samples_momentum):
+def grid_integration_position(f, dqix, dqiy, dqsx, dqsy, dx, dy, num_samples_position,
+                              num_samples_coarse_momentum, num_samples_fine_momentum):
     """
     Integrate along x and y. First pass function to be integrated along four dimensions
     of momentum (signal qx and qy, idler qx and qy).
@@ -181,8 +116,11 @@ def grid_integration_position(f, dqix, dqiy, dqsx, dqsy, dx, dy, num_samples_pos
     for n in range(len(coord_pairs)):
         x_sample, y_sample = coord_pairs[n]
         g = functools.partial(f, x_pos_integrate=x_sample, y_pos_integrate=y_sample)
-        func_values[n] = monte_carlo_integration_momentum(g, dqsx, dqsy, dqix, dqiy, num_samples_momentum)
- #       func_values[n] = adaptive_integration_momentum(f=rate_integrand_signal, dqsx=dqsx, dqsy=dqsy, dqix=dqix, dqiy=dqiy, num_samples_coarse=21, num_samples_fine=40000)
+       # func_values[n] = monte_carlo_integration_momentum(g, dqsx, dqsy, dqix, dqiy, num_samples_momentum)
+        func_values[n] = adaptive_integration_momentum(f=rate_integrand_signal,
+                                                       dqsx=dqsx, dqsy=dqsy, dqix=dqix,
+                                                       dqiy=dqiy, num_samples_coarse=num_samples_coarse_momentum,
+                                                       num_samples_fine=num_samples_fine_momentum)
 
     # Calculate the average value of the function
     avg_value = np.mean(func_values)
@@ -363,7 +301,6 @@ def calculate_conditional_probability(xs_pos, ys_pos, xi_pos, yi_pos, thetap, om
     :param yi_pos: Location of idler photon in the y direction a distance z away from the crystal
     """
     momentum_span = simulation_parameters.get("momentum_span")
-    num_samples = simulation_parameters["num_momentum_integration_points"]
     dqix = (omegai / C) * momentum_span
     dqiy = (omegai / C) * momentum_span
     dqsx = (omegas / C) * momentum_span
@@ -371,8 +308,8 @@ def calculate_conditional_probability(xs_pos, ys_pos, xi_pos, yi_pos, thetap, om
 
     rate_integrand = get_rate_integrand(xs_pos, ys_pos, thetap, omegai, omegas, simulation_parameters)
     rate_integrand_signal = functools.partial(rate_integrand, integrate_over="idler", x_pos_integrate=xi_pos, y_pos_integrate=yi_pos)
-#    result_signal = monte_carlo_integration_momentum(f=rate_integrand_signal, dqsx=dqsx, dqsy=dqsy, dqix=dqix, dqiy=dqiy, num_samples=num_samples)
-    result_signal = adaptive_integration_momentum(f=rate_integrand_signal, dqsx=dqsx, dqsy=dqsy, dqix=dqix, dqiy=dqiy, num_samples_coarse=25, num_samples_fine=40000)
+    result_signal = adaptive_integration_momentum(f=rate_integrand_signal, dqsx=dqsx, dqsy=dqsy,
+                                                  dqix=dqix, dqiy=dqiy, num_samples_coarse=25, num_samples_fine=40000)
 
     # TODO right now result_idler will equal result_signal; I think this  is always true but need to check, also given different omegas, omegai
     # rate_integrand_idler = functools.partial(rate_integrand, integrate_over="signal", x_pos_integrate=xs_pos, y_pos_integrate=ys_pos)
@@ -396,13 +333,16 @@ def calculate_pair_generation_rate(x_pos, y_pos, thetap, omegai, omegas, dx, dy,
     dqiy = (omegai / C) * momentum_span
     dqsx = (omegas / C) * momentum_span
     dqsy = (omegas / C) * momentum_span
-    num_samples_monte_carlo = simulation_parameters["num_momentum_integration_points"]
     grid_integration_size = simulation_parameters["grid_integration_size"]
+    num_samples_coarse_momentum = simulation_parameters["num_samples_coarse_momentum"]
+    num_samples_fine_momentum = simulation_parameters["num_samples_fine_momentum"]
 
     rate_integrand = get_rate_integrand(x_pos, y_pos, thetap, omegai, omegas, simulation_parameters)
     rate_integrand_wrt = functools.partial(rate_integrand, integrate_over=integrate_over)
     result = grid_integration_position(f=rate_integrand_wrt, dqix=dqix, dqiy=dqiy, dqsx=dqsx, dqsy=dqsy, dx=dx, dy=dy,
-                                       num_samples_position=grid_integration_size, num_samples_momentum=num_samples_monte_carlo)
+                                       num_samples_position=grid_integration_size,
+                                       num_samples_coarse_momentum=num_samples_coarse_momentum,
+                                       num_samples_fine_momentum=num_samples_fine_momentum)
 
     return result
 
@@ -608,9 +548,11 @@ def simulate_rings(simulation_parameters):
     calculate_pair_generation_rate_vec = np.vectorize(calculate_pair_generation_rate)
 
     # Run calculate_pair_generation_rate in parallel
-    parallel_calculate_pair_generation_rate = functools.partial(calculate_pair_generation_rate_vec, thetap=thetap, omegai=omegai, omegas=omegas,
+    parallel_calculate_pair_generation_rate = functools.partial(calculate_pair_generation_rate_vec,
+                                                                thetap=thetap, omegai=omegai, omegas=omegas,
                                                                 dx=x_span, dy=y_span,
-                                                                integrate_over="idler", simulation_parameters=simulation_parameters)
+                                                                integrate_over="idler",
+                                                                simulation_parameters=simulation_parameters)
     Z1 = Parallel(n_jobs=num_cores)(delayed(parallel_calculate_pair_generation_rate)(xs, ys) for xs in x for ys in y)
     Z = np.reshape(np.array(Z1), [num_plot_y_points, num_plot_x_points]).T
 
