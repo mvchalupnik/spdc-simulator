@@ -22,16 +22,14 @@ def monte_carlo_integration_momentum(f, dqsx, dqsy, dqix, dqiy, num_samples):
 
     batch_size = np.min([MAX_BATCH_SIZE, num_samples])
 
-    mytime = time.time()
-
     average = None
     # TODO clean up and simplify
     for j in range(num_samples // batch_size):
-        qix_samples = np.random.uniform(-dqsx, dqix, batch_size)
+        qix_samples = np.random.uniform(0.7*dqix, dqix, batch_size)
         qiy_samples = 0
-#        qiy_samples = np.random.uniform(-dqiy, dqiy, batch_size)
-        qsx_samples = np.random.uniform(-dqsx, dqix, batch_size)
-#        qsy_samples = np.random.uniform(-dqsy, dqsy, batch_size)
+       # qiy_samples = np.random.uniform(-dqiy, dqiy, batch_size)
+        qsx_samples = np.random.uniform(-dqix, -0.7*dqsx, batch_size)
+     #   qsy_samples = np.random.uniform(-dqsy, dqsy, batch_size)
         qsy_samples = 0
 
         func_values = f(qix_samples, qiy_samples, qsx_samples, qsy_samples)
@@ -40,16 +38,15 @@ def monte_carlo_integration_momentum(f, dqsx, dqsy, dqix, dqiy, num_samples):
 
     batch_remainder = num_samples % batch_size
     if batch_remainder != 0:
-        qix_samples = np.random.uniform(-dqsx, dqix, batch_remainder)
+        qix_samples = np.random.uniform(0.7*dqix, dqix, batch_remainder)
         qiy_samples = 0
-    #    qiy_samples = np.random.uniform(-dqiy, dqiy, batch_remainder)
-        qsx_samples = np.random.uniform(-dqsx, dqix, batch_remainder)
+     #   qiy_samples = np.random.uniform(-dqiy, dqiy, batch_remainder)
+        qsx_samples = np.random.uniform(-dqix, -0.7*dqsx, batch_remainder)
     #    qsy_samples = np.random.uniform(-dqsy, dqsy, batch_remainder)
         qsy_samples = 0
 
         func_values = f(qix_samples, qiy_samples, qsx_samples, qsy_samples)
         average = np.mean([average, np.mean(func_values)])
-    mytime2 = time.time()
 
     # Evaluate the function at each sample point
  #   print(f"Time increment1: {mytime2 - mytime}")
@@ -60,7 +57,6 @@ def monte_carlo_integration_momentum(f, dqsx, dqsy, dqix, dqiy, num_samples):
 
 #    # Calculate the average value of the function
 #    avg_value = np.mean(func_values)
-    
     # The volume of the integration region
     volume = (2 * dqix) * (2 * dqiy) * (2 * dqsx) * (2 * dqsy)
     
@@ -109,7 +105,76 @@ def monte_carlo_integration_momentum(f, dqsx, dqsy, dqix, dqiy, num_samples):
 
 #     return integral_estimate_sq
 
-def grid_integration_position(f, dqsx, dqsy, dqix, dqiy, dx, dy, num_samples_position, num_samples_momentum):
+def adaptive_integration_momentum(f, dqsx, dqsy, dqix, dqiy, num_samples_coarse, num_samples_fine):
+    """
+    Use an adaptive technique to integrate along four dimensions of momentum space.
+    """
+    # First, generate a coarse grid within the supplied bounds [-dqsx, dqsx], [-dqix, dqix],
+    # [-dqsy, dqsy], [-dqiy, dqiy] with grid size equal to num_samples_coarse in each dimension.
+    # Note: num_samples_coarse should not be too large as grid scales by num_samples_coarse^4.
+    dqsx_samples = np.linspace(-dqsx, dqsx, num_samples_coarse)
+    dqsy_samples = np.linspace(-dqsy, dqsy, num_samples_coarse)
+    dqix_samples = np.linspace(-dqix, dqix, num_samples_coarse)
+    dqiy_samples = np.linspace(-dqiy, dqiy, num_samples_coarse)
+    coord_pairs = np.asarray(list(itertools.product(dqix_samples, dqiy_samples, dqsx_samples, dqsy_samples)))
+
+    # Evaluate the function at each sample point
+    total_number_samples_coarse = num_samples_coarse**4
+    func_values = np.zeros(total_number_samples_coarse, dtype='complex128') # Technically won't be complex here
+    for n in range(total_number_samples_coarse):
+        dqix_sample, dqiy_sample, dqsx_sample, dqsy_sample = coord_pairs[n] # Maybe there is a better way to do this, using the iter object
+        func_values[n] = f(dqix_sample, dqiy_sample, dqsx_sample, dqsy_sample)
+
+    # Find all absolute value squared values of `func_values` greater than a threshold
+    sorted_squared_values = np.sort(np.abs(func_values))
+    threshold_index = int(total_number_samples_coarse * 0.005) # Can modify 0.005, TODO
+    threshold = sorted_squared_values[-threshold_index]
+    thresholded_coord_pairs_indices = np.where(func_values > threshold)[0]
+    thresholded_coord_pairs = coord_pairs[thresholded_coord_pairs_indices]
+    import pdb; pdb.set_trace()
+
+
+    # Next, do a finer sampling around the points which passed the threshold.
+    dqsx_grid_width = (2 * dqsx) / (num_samples_coarse - 1)
+    dqsy_grid_width = (2 * dqsy) / (num_samples_coarse - 1)
+    dqix_grid_width = (2 * dqix) / (num_samples_coarse - 1)
+    dqiy_grid_width = (2 * dqiy) / (num_samples_coarse - 1)
+
+    # To do Monte Carlo integration with importance sampling, we can draw the 
+    # integration points from a sampling distribution (here, the points near the
+    # thresholded points). To correctly scale the integral, we will need to also divide
+    # each point in the target sample by the pdf value at that point of the sampling
+    # distribution. Here, the pdf is a uniform distribution with bounds set near
+    # the thresholded points. We make the approximation that the portions of the integral
+    # which are not near the thresholded points will sum to approximately zero compared
+    # to the rest of the integral (to avoid dividing by a pdf).
+
+    coarse_coords_indices = np.random.choice(range(len(thresholded_coord_pairs)), size=num_samples_fine, replace=True)
+    coarse_coords = thresholded_coord_pairs[coarse_coords_indices] #TODO they aren't pairs, rename
+
+    dqsx_samples_fine = np.random.uniform(-0.5 * dqsx_grid_width, 0.5 * dqsx_grid_width, num_samples_fine) + \
+                        coarse_coords[:, 0]
+    dqsy_samples_fine = np.random.uniform(-0.5 * dqsy_grid_width, 0.5 * dqsy_grid_width, num_samples_fine) + \
+                        coarse_coords[:, 1]
+    dqix_samples_fine = np.random.uniform(-0.5 * dqix_grid_width, 0.5 * dqix_grid_width, num_samples_fine) + \
+                        coarse_coords[:, 2]
+    dqiy_samples_fine = np.random.uniform(-0.5 * dqiy_grid_width, 0.5 * dqiy_grid_width, num_samples_fine) + \
+                        coarse_coords[:, 3]
+
+    thresholded_func_values = f(dqix_samples_fine, dqiy_samples_fine, dqsx_samples_fine, dqsy_samples_fine)
+
+    # Calculate the average value of the function
+    avg_value = np.mean(thresholded_func_values)
+    
+    # The volume of the integration region
+    volume = (2 * dqsx) * (2 * dqsy) * (2 * dqix) * (2 * dqiy)
+    
+    # Estimate the integral as the average value times the volume
+    integral_estimate = avg_value * volume
+    
+    return integral_estimate
+
+def grid_integration_position(f, dqix, dqiy, dqsx, dqsy, dx, dy, num_samples_position, num_samples_momentum):
     """
     Integrate along x and y. First pass function to be integrated along four dimensions
     of momentum (signal qx and qy, idler qx and qy).
@@ -314,7 +379,8 @@ def calculate_conditional_probability(xs_pos, ys_pos, xi_pos, yi_pos, thetap, om
 
     rate_integrand = get_rate_integrand(xs_pos, ys_pos, thetap, omegai, omegas, simulation_parameters)
     rate_integrand_signal = functools.partial(rate_integrand, integrate_over="idler", x_pos_integrate=xi_pos, y_pos_integrate=yi_pos)
-    result_signal = monte_carlo_integration_momentum(f=rate_integrand_signal, dqsx=dqsx, dqsy=dqsy, dqix=dqix, dqiy=dqiy, num_samples=num_samples)
+#    result_signal = monte_carlo_integration_momentum(f=rate_integrand_signal, dqsx=dqsx, dqsy=dqsy, dqix=dqix, dqiy=dqiy, num_samples=num_samples)
+    result_signal = adaptive_integration_momentum(f=rate_integrand_signal, dqsx=dqsx, dqsy=dqsy, dqix=dqix, dqiy=dqiy, num_samples_coarse=21, num_samples_fine=20000)
 
     # TODO right now result_idler will equal result_signal; I think this  is always true but need to check, also given different omegas, omegai
     # rate_integrand_idler = functools.partial(rate_integrand, integrate_over="signal", x_pos_integrate=xs_pos, y_pos_integrate=ys_pos)
@@ -343,7 +409,7 @@ def calculate_pair_generation_rate(x_pos, y_pos, thetap, omegai, omegas, dx, dy,
 
     rate_integrand = get_rate_integrand(x_pos, y_pos, thetap, omegai, omegas, simulation_parameters)
     rate_integrand_wrt = functools.partial(rate_integrand, integrate_over=integrate_over)
-    result = grid_integration_position(f=rate_integrand_wrt, dqsx=dqsx, dqsy=dqsy, dqix=dqix, dqiy=dqiy, dx=dx, dy=dy,
+    result = grid_integration_position(f=rate_integrand_wrt, dqix=dqix, dqiy=dqiy, dqsx=dqsx, dqsy=dqsy, dx=dx, dy=dy,
                                        num_samples_position=grid_integration_size, num_samples_momentum=num_samples_monte_carlo)
 
     return result
