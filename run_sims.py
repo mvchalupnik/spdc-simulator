@@ -3,22 +3,25 @@ from simulate_spdc import simulate_rings, simulate_ring_momentum, simulate_ring_
 from file_utils import create_directory
 import numpy as np
 
+
 def main():
-    """ main function """
+    """main function"""
     print("Hello world")
     dir_string = create_directory(data_directory_path="plots")
 
-    pump_wavelength = 405e-9# 405.9e-9 # Pump wavelength in meters
-    down_conversion_wavelength = 810e-9# 811.8e-9 # Wavelength of down-converted photons in meters
+    pump_wavelength = 405e-9  # 405.9e-9 # Pump wavelength in meters
+    down_conversion_wavelength = (
+        810e-9  # 811.8e-9 # Wavelength of down-converted photons in meters
+    )
     thetap = 28.95 * np.pi / 180
-  #  thetap = 28.84 * np.pi / 180
-   # thetap = 28.64 * np.pi / 180
+    #  thetap = 28.84 * np.pi / 180
+    # thetap = 28.64 * np.pi / 180
 
-   #thetap = 0 * np.pi / 180
+    # thetap = 0 * np.pi / 180
 
-    w0 = 388e-6 # beam waist in meters, page 8
-    d = 107.8e-2 # pg 15
-    z_pos = 35e-3 # 35 millimeters, page 15
+    w0 = 388e-6  # beam waist in meters, page 8
+    d = 107.8e-2  # pg 15
+    z_pos = 35e-3  # 35 millimeters, page 15
     crystal_length = 0.002  # Length of the nonlinear crystal in meters
 
     ######### SIMULATE RING MOMENTUM
@@ -45,7 +48,7 @@ def main():
 
     ######### SIMULATE RING SLICE
     simulation_parameters = {
-        "num_plot_x_points": 300, #300
+        "num_plot_x_points": 300,  # 300
         "thetap": thetap,
         "omegap": (2 * np.pi * C) / pump_wavelength,
         "omegai": (2 * np.pi * C) / down_conversion_wavelength,
@@ -54,7 +57,7 @@ def main():
         "idler_x_span": 0.003,
         "idler_x_increment": 0.0016,
         "momentum_span": 0.05,
-        "num_momentum_integration_points": 200000,#1000000,
+        "num_momentum_integration_points": 200000,  # 1000000,
         "idler_y_pos": 0,
         "signal_y_pos": 0,
         "pump_waist_size": w0,
@@ -63,7 +66,7 @@ def main():
         "crystal_length": crystal_length,
         "simulation_cores": 4,
         "save_directory": dir_string,
-        "random_seed": 1
+        "random_seed": 1,
     }
 
     simulate_ring_slice(simulation_parameters=simulation_parameters)
@@ -87,11 +90,10 @@ def main():
         "crystal_length": crystal_length,
         "simulation_cores": 60,
         "save_directory": dir_string,
-        "random_seed": 1
+        "random_seed": 1,
     }
 
     simulate_ring_slice(simulation_parameters=simulation_parameters)
-
 
     # simulation_parameters = {
     #     "num_plot_x_points": 100,
@@ -152,7 +154,7 @@ def main():
         "omegas": (2 * np.pi * C) / down_conversion_wavelength,
         "x_span": 3e-3,
         "y_span": 3e-3,
-        "momentum_span": 0.06, #0.06,
+        "momentum_span": 0.06,  # 0.06,
         "num_momentum_integration_points": 2000000,
         "grid_integration_size": 20,
         "pump_waist_size": w0,
@@ -161,11 +163,11 @@ def main():
         "crystal_length": crystal_length,
         "simulation_cores": 112,
         "save_directory": dir_string,
-        "random_seed": 1
+        "random_seed": 1,
     }
 
     simulate_rings(simulation_parameters=simulation_parameters)
 
 
-if __name__=="__main__": 
+if __name__ == "__main__":
     main()
