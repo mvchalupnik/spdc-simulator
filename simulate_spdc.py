@@ -119,7 +119,7 @@ def grid_integration_position(f, dqix, dqiy, dqsx, dqsy, dx, dy, num_samples_pos
         x_sample, y_sample = coord_pairs[n]
         g = functools.partial(f, x_pos_integrate=x_sample, y_pos_integrate=y_sample)
        # func_values[n] = monte_carlo_integration_momentum(g, dqsx, dqsy, dqix, dqiy, num_samples_momentum)
-        func_values[n] = adaptive_integration_momentum(f=rate_integrand_signal,
+        func_values[n] = adaptive_integration_momentum(f=g,
                                                        dqsx=dqsx, dqsy=dqsy, dqix=dqix,
                                                        dqiy=dqiy, num_samples_coarse=num_samples_coarse_momentum,
                                                        num_samples_fine=num_samples_fine_momentum, 
@@ -546,7 +546,6 @@ def simulate_rings(simulation_parameters):
     omegai = simulation_parameters["omegai"] # Idler frequency (Radians / sec)
     omegas = simulation_parameters["omegas"] # Signal frequency (Radians / sec)
     momentum_span = simulation_parameters["momentum_span"] # Extent of span to integrate in momentum space over across x axis and in y axis for both signal and idler (fraction of omega / C)
-    num_momentum_integration_points = simulation_parameters["num_momentum_integration_points"]  # Number of points to integrate over in momentum space
     grid_integration_size = simulation_parameters["grid_integration_size"] # Size of square root of grid for integration in real space (todo improve name)
     pump_waist_size = simulation_parameters["pump_waist_size"] # Size of pump beam waist
     pump_waist_distance = simulation_parameters["pump_waist_distance"] # Distance of pump waist from crystal (meters)
