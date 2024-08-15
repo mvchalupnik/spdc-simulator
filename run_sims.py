@@ -22,8 +22,8 @@ def main():
     ######### SIMULATE RING MOMENTUM
 
     simulation_parameters = {
-        "num_plot_qx_points": 25,
-        "num_plot_qy_points": 25,
+        "num_plot_qx_points": 500,
+        "num_plot_qy_points": 500,
         "thetap": thetap,
         "omegap": (2 * np.pi * C) / pump_wavelength,
         "omegai": (2 * np.pi * C) / down_conversion_wavelength,
