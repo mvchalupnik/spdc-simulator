@@ -41,52 +41,46 @@ def main():
     }
     simulate_ring_momentum(simulation_parameters=simulation_parameters)
 
-    ######### SIMULATE RING SLICE
-    simulation_parameters = {
-        "num_plot_x_points": 100,
-        "thetap": thetap,
-        "omegap": (2 * np.pi * C) / pump_wavelength,
-        "omegai": (2 * np.pi * C) / down_conversion_wavelength,
-        "omegas": (2 * np.pi * C) / down_conversion_wavelength,
-        "signal_x_span": 0.003,
-        "idler_x_span": 0.003,
-        "idler_x_increment": 0.0016,
-        "momentum_span": 0.05,
-        "num_samples_coarse_momentum": 25,
-        "num_samples_fine_momentum": 20000,
-        "grid_width_fraction_momentum": 0.1,
-        "fraction_of_coarse_points_momentum": 0.001,
-        "idler_y_pos": 0,
-        "signal_y_pos": 0,
-        "pump_waist_size": w0,
-        "pump_waist_distance": d,
-        "z_pos": z_pos,
-        "crystal_length": crystal_length,
-        "simulation_cores": 4,
-        "save_directory": dir_string,
-        "random_seed": 1
-    }
+    # ######### SIMULATE RING SLICE
+    # simulation_parameters = {
+    #     "num_plot_x_points": 100,
+    #     "thetap": thetap,
+    #     "omegap": (2 * np.pi * C) / pump_wavelength,
+    #     "omegai": (2 * np.pi * C) / down_conversion_wavelength,
+    #     "omegas": (2 * np.pi * C) / down_conversion_wavelength,
+    #     "signal_x_span": 0.003,
+    #     "idler_x_span": 0.003,
+    #     "idler_x_increment": 0.0016,
+    #     "momentum_span_wide": 0.05,
+    #     "momentum_span_narrow": 0.005,
+    #     "num_samples_momentum_wide": 10,
+    #     "num_samples_momentum_narrow": 100,
+    #     "idler_y_pos": 0,
+    #     "signal_y_pos": 0,
+    #     "pump_waist_size": w0,
+    #     "pump_waist_distance": d,
+    #     "z_pos": z_pos,
+    #     "crystal_length": crystal_length,
+    #     "simulation_cores": 4,
+    #     "save_directory": dir_string,
+    #     "random_seed": 1
+    # }
 
-    simulate_ring_slice(simulation_parameters=simulation_parameters)
+    #simulate_ring_slice(simulation_parameters=simulation_parameters)
 
 
     # ################ SIMULATE RINGS
 
     simulation_parameters = {
-        "num_plot_x_points": 2,
-        "num_plot_y_points": 2,
         "thetap": thetap,
         "omegap": (2 * np.pi * C) / pump_wavelength,
         "omegai": (2 * np.pi * C) / down_conversion_wavelength,
         "omegas": (2 * np.pi * C) / down_conversion_wavelength,
-        "x_span": 3e-3,
-        "y_span": 3e-3,
-        "momentum_span": 0.06,
-        "num_samples_coarse_momentum": 20,
-        "num_samples_fine_momentum": 20000,
-        "grid_width_fraction_momentum": 0.1,
-        "fraction_of_coarse_points_momentum": 0.001,
-        "grid_integration_size": 20,
+        "momentum_span_wide": 0.05,
+        "momentum_span_narrow": 0.001,
+        "num_samples_momentum_wide": 500,
+        "num_samples_momentum_narrow": 30,
+        "grid_integration_size": 2,
         "pump_waist_size": w0,
         "pump_waist_distance": d,
         "z_pos": z_pos,
