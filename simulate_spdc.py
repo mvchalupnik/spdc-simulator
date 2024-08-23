@@ -16,44 +16,60 @@ def grid_integration_momentum(f, dqix, dqiy, dqx, dqy, num_samples_wide, num_sam
     """
     Integrate along momentum dimensions.
     """
-    dqix_samples = np.linspace(-dqix, dqix, num_samples_wide)
-    dqiy_samples = np.linspace(-dqiy, dqiy, num_samples_wide)
+    qix_array = np.linspace(-dqix, dqix, num_samples_wide)
+    qiy_array = np.linspace(-dqiy, dqiy, num_samples_wide)
 
     # From conservation of momentum, dqix should be close to -dqsx and dqiy should be close to -dqsy
     # so we can write dqix = -dqsx + dqx and dqiy = -dqsy + dqy 
     # and then can use fewer points of integration along the dqx, dqy dimensions.
-    dqx_samples = np.linspace(-dqx, dqx, num_samples_narrow)
-    dqy_samples = np.linspace(-dqy, dqy, num_samples_narrow)
+    dqx_array = np.linspace(-dqx, dqx, num_samples_narrow)
+    dqy_array = np.linspace(-dqy, dqy, num_samples_narrow)
 
     # Generate the coordinate grid using meshgrid
-    dqix_grid, dqiy_grid, dqx_grid, dqy_grid = np.meshgrid(dqix_samples, dqiy_samples, dqx_samples, dqy_samples,
+    qix_grid, qiy_grid, dqx_grid, dqy_grid = np.meshgrid(qix_array, qiy_array, dqx_array, dqy_array,
                                                            indexing='ij')
 
     # Flatten the grids
-    dqix_flat = dqix_grid.ravel()
-    dqiy_flat = dqiy_grid.ravel()
+    qix_flat = qix_grid.ravel()
+    qiy_flat = qiy_grid.ravel()
     dqx_flat = dqx_grid.ravel()
     dqy_flat = dqy_grid.ravel()
     time1 = time.time()
 
     # Vectorized evaluation of the function f over the flattened grids
-    func_grid = f(dqix_flat, dqiy_flat, dqx_flat, dqy_flat)
-#    func_grid = Parallel(n_jobs=num_cores)(delayed(f)(dqix_flat[i], dqiy_flat[i], dqx_flat[i], dqy_flat[i]) for i in range(len(dqix_flat)))
+    func_grid = f(qix_flat, qiy_flat, dqx_flat, dqy_flat)
+#    func_grid = Parallel(n_jobs=num_cores)(delayed(f)(qix_flat[i], qiy_flat[i], dqx_flat[i], dqy_flat[i]) for i in range(len(dqix_flat)))
 
     time2 = time.time()
 
     # Reshape grid
-    reshaped_func_grid = np.reshape(func_grid, [len(dqix_samples), len(dqiy_samples), len(dqx_samples), len(dqy_samples)])
+    reshaped_func_grid = np.reshape(func_grid, [len(qix_array), len(qiy_array), len(dqx_array), len(dqy_array)])
 
     # To do: do a Fourier transform on four axes
     ft_func_grid = np.fft.fftn(reshaped_func_grid)
     ft_func_grid_shifted = np.fft.fftshift(ft_func_grid)
+
     # Return the absolute value of this grid squared
     time3 = time.time()
     print(time2-time1)
     print(time3-time2)
 
-    return np.abs(ft_func_grid_shifted)**2
+    # Find the four Fourier transformed axes
+    # dx * dq = 1/N for N-point fft
+    def get_fourier_transformed_axis(dq, num_points):
+        if num_points % 2 == 0:
+            ft_axis = np.arange(-num_points/2, num_points/2-1)*1/(dq*num_points)
+        else:
+            ft_axis = np.arange(-(num_points-1)/2, (num_points-1)/2)*1/(dq*num_points)
+        return ft_axis
+
+    xi_array = get_fourier_transformed_axis(dq=dqix, num_points=num_samples_wide)
+    yi_array = get_fourier_transformed_axis(dq=dqiy, num_points=num_samples_wide)
+    dx_array = get_fourier_transformed_axis(dq=dqx, num_points=num_samples_narrow)
+    dy_array = get_fourier_transformed_axis(dq=dqy, num_points=num_samples_narrow)
+
+    # Return the absolute value of the Fourier transformed grid squared, as well as the four new axes
+    return np.abs(ft_func_grid_shifted)**2, xi_array, yi_array, dx_array, dy_array
 
 def n_o(wavelength):
     """
@@ -201,17 +217,20 @@ def get_rate_integrand(thetap, omegai, omegas, simulation_parameters):
     return rate_integrand
 
 
-def calculate_conditional_probability(xs_pos, ys_pos, xi_pos, yi_pos, thetap, omegai, omegas, simulation_parameters):
+def calculate_conditional_probability(xi_pos, yi_pos, xs_pos, ys_pos, thetap, omegai, omegas, simulation_parameters):
     """
-    Return the conditional probability of detecting the signal at (xs_pos, ys_pos) given the idler is detected at (xi_pos, yi_pos). Equation 84.
+    Return the conditional probability of detecting the idler at any x pos and at yi_pos given the signal is detected
+    at (xs_pos, ys_pos). Equation 84.
 
-    :param xs_pos: Location of signal photon in the x direction a distance z away from the crystal
     :param ys_pos: Location of signal photon in the y direction a distance z away from the crystal
     :param xi_pos: Location of idler photon in the x direction a distance z away from the crystal
     :param yi_pos: Location of idler photon in the y direction a distance z away from the crystal
     """
     momentum_span_wide = simulation_parameters.get("momentum_span_wide")
     momentum_span_narrow = simulation_parameters.get("momentum_span_narrow")
+    num_samples_momentum_wide = simulation_parameters["num_samples_momentum_wide"]
+    num_samples_momentum_narrow = simulation_parameters["num_samples_momentum_narrow"]
+
     num_cores = simulation_parameters.get("num_cores")
 
     dqix = (omegai / C) * momentum_span_wide
@@ -219,34 +238,30 @@ def calculate_conditional_probability(xs_pos, ys_pos, xi_pos, yi_pos, thetap, om
     dqx = (omegas / C) * momentum_span_narrow
     dqy = (omegas / C) * momentum_span_narrow
 
-    num_samples_momentum_wide = simulation_parameters["num_samples_momentum_wide"]
-    num_samples_momentum_narrow = simulation_parameters["num_samples_momentum_narrow"]
-
     rate_integrand = get_rate_integrand(thetap, omegai, omegas, simulation_parameters)
-    result_grid = grid_integration_momentum(f=rate_integrand, dqix=dqix, dqiy=dqiy,
+    result_grid, xis, yis, dxs, dys = grid_integration_momentum(f=rate_integrand, dqix=dqix, dqiy=dqiy,
                                             dqx=dqx, dqy=dqy, num_samples_wide=num_samples_momentum_wide,
                                             num_samples_narrow=num_samples_momentum_narrow, num_cores=num_cores)
 
     # Select out the signal by index closest to input point
-    xi_samples = 1 / np.linspace(-dqix, dqix, num_samples_momentum_wide) # TODO, unclear HOW to label the Fourier transform axes after FT
-    index_xi = (np.abs(xi_pos - xi_samples)).argmin()
-    yi_samples = 1 / np.linspace(-dqiy, dqiy, num_samples_momentum_wide) # TODO, unclear HOW to label the Fourier transform axes after FT
-    index_yi = (np.abs(yi_pos - yi_samples)).argmin()
-    print(xi_pos)
-    print(xi_samples)
+    index_xi = (np.abs(xi_pos - xis)).argmin()
+    index_yi = (np.abs(yi_pos - yis)).argmin()
 
-    dx_samples = 1 / np.linspace(-dqx, dqx, num_samples_momentum_narrow)
     dx = xs_pos - xi_pos
-    index_dx = (np.abs(dx - dx_samples)).argmin()
+    index_dx = (np.abs(dx - dxs)).argmin()
 
-    dy_samples = 1 / np.linspace(-dqy, dqy, num_samples_momentum_narrow)
     dy = ys_pos - yi_pos
-    index_dy = (np.abs(dy - dy_samples)).argmin()
+    index_dy = (np.abs(dy - dys)).argmin()
 
+    # Return the x slice idler probability at the given y index and signal x and y.
     result = result_grid[index_xi][index_yi][index_dx][index_dy]
+    print(index_xi)
+    print(index_dx)
 
-    return result #TODO expand to include type II
-    # Also todo, return the actual point used
+    return result
+    #TODO expand to include type II
+    # Also could return signal probability
+    # Also todo, return the actual points used
 
 
 def calculate_rings(thetap, omegai, omegas, simulation_parameters):
@@ -258,26 +273,25 @@ def calculate_rings(thetap, omegai, omegas, simulation_parameters):
     """
     momentum_span_wide = simulation_parameters.get("momentum_span_wide")
     momentum_span_narrow = simulation_parameters.get("momentum_span_narrow")
+    num_samples_momentum_wide = simulation_parameters["num_samples_momentum_wide"]
+    num_samples_momentum_narrow = simulation_parameters["num_samples_momentum_narrow"]
     num_cores = simulation_parameters.get("num_cores")
 
     dqix = (omegai / C) * momentum_span_wide
     dqiy = (omegai / C) * momentum_span_wide
     dqx = (omegas / C) * momentum_span_narrow
     dqy = (omegas / C) * momentum_span_narrow
-    grid_integration_size = simulation_parameters["grid_integration_size"]
-    num_samples_momentum_wide = simulation_parameters["num_samples_momentum_wide"]
-    num_samples_momentum_narrow = simulation_parameters["num_samples_momentum_narrow"]
 
     rate_integrand = get_rate_integrand(thetap, omegai, omegas, simulation_parameters)
-    result_grid = grid_integration_momentum(f=rate_integrand, dqix=dqix, dqiy=dqiy, dqx=dqx, dqy=dqy,
+    result_grid, dix, diy, dx, dy = grid_integration_momentum(f=rate_integrand, dqix=dqix, dqiy=dqiy, dqx=dqx, dqy=dqy,
                                             num_samples_wide=num_samples_momentum_wide,
                                             num_samples_narrow=num_samples_momentum_narrow, num_cores=num_cores)
 
     # Sum result over two dimensions (integrate) TODO multiply by volume also
-    result_grid_sum_dx = np.sum(result_grid, axis=3)
-    result_grid_sum_dy = np.sum(result_grid_sum_dx, axis=2)
+    result_grid_sum_over_dx = np.sum(result_grid, axis=3)
+    result_grid_sum_over_dx_and_dy = np.sum(result_grid_sum_over_dx, axis=2)
 
-    return result_grid_sum_dy
+    return result_grid_sum_over_dx_and_dy
 
 
 def simulate_ring_momentum(simulation_parameters):
@@ -293,6 +307,7 @@ def simulate_ring_momentum(simulation_parameters):
     omegap = simulation_parameters["omegap"] # Pump frequency (Radians / sec)
     omegai = simulation_parameters["omegai"] # Idler frequency (Radians / sec)
     omegas = simulation_parameters["omegas"] # Signal frequency (Radians / sec)
+
     momentum_span = simulation_parameters["momentum_span"]
     signal_x_pos = simulation_parameters["signal_x_pos"] #change to xs_pos TODO
     signal_y_pos = simulation_parameters["signal_y_pos"]
@@ -314,7 +329,7 @@ def simulate_ring_momentum(simulation_parameters):
     x = np.linspace(-dqix, dqix, num_plot_qx_points)
     y = np.linspace(-dqiy, dqiy, num_plot_qy_points)
     X, Y = np.meshgrid(x, y)
-    Z = rate_integrand(X, Y, 2*X, 2*Y) #TODO check
+    Z = rate_integrand(X, Y, 2*X, 2*Y)
 
     im1 = ax1.imshow(np.abs(Z), extent=(x.min(), x.max(), y.min(), y.max()), origin='lower', cmap='gray')
     ax1.set_title("Abs(Integrand)")
@@ -372,8 +387,8 @@ def simulate_ring_momentum(simulation_parameters):
 
 def simulate_ring_slice(simulation_parameters):
     """
-    Simulate and plot a slice of the conditional probabilities of detecting the signal photon, 
-    given the idler photon is detected on the x-axis.
+    Simulate and plot a slice of the conditional probabilities of detecting the idler photon, 
+    given the signal photon is detected on the x-axis.
 
     :param simulation_parameters: A dict containing relevant parameters for running the simulation.
     TODO use kwargs instead of a dict!
@@ -385,29 +400,34 @@ def simulate_ring_slice(simulation_parameters):
     omegai = simulation_parameters["omegai"] # Idler frequency (Radians / sec)
     omegas = simulation_parameters["omegas"] # Signal frequency (Radians / sec)
 
-    x_signal_span = simulation_parameters["signal_x_span"] # Span in the x-direction to plot conditional probability of signal over, in meters
-    signal_y_pos = simulation_parameters["signal_y_pos"]
-    idler_x_span = simulation_parameters["idler_x_span"] # Span in the x-direction to fix idler at
-    idler_x_increment = simulation_parameters["idler_x_increment"] # Increment size to change idler by in the x-direction
+    num_plot_x_points = simulation_parameters["num_plot_x_points"]
+    idler_x_span  = simulation_parameters["idler_x_span"]
     idler_y_pos = simulation_parameters["idler_y_pos"]
+    signal_x_pos = simulation_parameters["signal_x_pos"] # Span in the x-direction to fix signal at
+    signal_y_pos = simulation_parameters["signal_y_pos"]
 
     save_directory = simulation_parameters["save_directory"]
     num_cores = simulation_parameters["simulation_cores"]
 
-    x_signal = np.linspace(-x_signal_span, x_signal_span, num_plot_x_points) #TODO standardize x_signal or signal_x
-    sweep_points = np.arange(-idler_x_span, idler_x_span, idler_x_increment)
+    x_idler = np.linspace(-idler_x_span, idler_x_span, num_plot_x_points)
 
     calculate_conditional_probability_vec = np.vectorize(calculate_conditional_probability)
-    parallel_calc_conditional_prob = functools.partial(calculate_conditional_probability_vec, yi_pos=idler_y_pos,
+    parallel_calc_conditional_prob = functools.partial(calculate_conditional_probability_vec, yi_pos=idler_y_pos, xs_pos=signal_x_pos, ys_pos=signal_y_pos,
                                                        thetap=thetap, omegai=omegai, omegas=omegas, simulation_parameters=simulation_parameters)
 
     # Inefficient; you don't have to call this each time (below)
-    z1 = [parallel_calc_conditional_prob(x_s, signal_y_pos, sweep_points) for x_s in x_signal]
+    z1 = [parallel_calc_conditional_prob(x_i) for x_i in x_idler] # You should also return the actual point that got plotted
+
+    # Run calculate_pair_generation_rate
+  ##  xs_pos, ys_pos, xi_pos, yi_pos, thetap, omegai, omegas, simulation_parameters
+    # Z1, x_arr = calculate_conditional_probability(xi_pos=x_idlers, yi_pos=idler_y_pos, xs_pos=signal_x_pos, ys_pos=signal_y_pos,
+    #                                               thetap=thetap, omegai=omegai, omegas=omegas,
+    #                                               simulation_parameters=simulation_parameters)
 
     probs = np.array(z1)
 
     plt.figure(figsize=(8, 6))
-    plt.plot(x_signal, probs, label=sweep_points)
+    plt.plot(x_idler, probs) #TODO label
     plt.legend()
 
     plt.title( "Conditional probability of signal given idler at different locations on x-axis" )
@@ -451,7 +471,6 @@ def simulate_rings(simulation_parameters):
     omegap = simulation_parameters["omegap"] # Pump frequency (Radians / sec)
     omegai = simulation_parameters["omegai"] # Idler frequency (Radians / sec)
     omegas = simulation_parameters["omegas"] # Signal frequency (Radians / sec)
-    grid_integration_size = simulation_parameters["grid_integration_size"] # Size of square root of grid for integration in real space (todo improve name)
     pump_waist_size = simulation_parameters["pump_waist_size"] # Size of pump beam waist
     pump_waist_distance = simulation_parameters["pump_waist_distance"] # Distance of pump waist from crystal (meters)
     z_pos = simulation_parameters["z_pos"] # View location in the z direction, from crystal (meters)

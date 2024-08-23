@@ -5,6 +5,7 @@ TODO:
 - Fig out parallelization
 - fig out axes tick labels
 - Fix conditional probability plot
+- Make sure momentum plot is right
 
 - Type II noncollinear
 - Plot total output power as a function of theta_p and other params
