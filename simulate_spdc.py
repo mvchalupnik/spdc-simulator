@@ -6,13 +6,13 @@ import functools
 import itertools
 import pickle
 import json
-from file_utils import get_current_time 
+from file_utils import get_current_time
 
 # Constants
 C = 2.99792e8  # Speed of light, in meters per second
 
 
-def grid_integration_momentum(f, dqix, dqiy, dqx, dqy, num_samples_wide, num_samples_narrow):
+def grid_integration_momentum(f, dqix, dqiy, dqx, dqy, num_samples_wide, num_samples_narrow, num_cores):
     """
     Integrate along momentum dimensions.
     """
@@ -34,9 +34,13 @@ def grid_integration_momentum(f, dqix, dqiy, dqx, dqy, num_samples_wide, num_sam
     dqiy_flat = dqiy_grid.ravel()
     dqx_flat = dqx_grid.ravel()
     dqy_flat = dqy_grid.ravel()
+    time1 = time.time()
 
     # Vectorized evaluation of the function f over the flattened grids
     func_grid = f(dqix_flat, dqiy_flat, dqx_flat, dqy_flat)
+#    func_grid = Parallel(n_jobs=num_cores)(delayed(f)(dqix_flat[i], dqiy_flat[i], dqx_flat[i], dqy_flat[i]) for i in range(len(dqix_flat)))
+
+    time2 = time.time()
 
     # Reshape grid
     reshaped_func_grid = np.reshape(func_grid, [len(dqix_samples), len(dqiy_samples), len(dqx_samples), len(dqy_samples)])
@@ -45,6 +49,10 @@ def grid_integration_momentum(f, dqix, dqiy, dqx, dqy, num_samples_wide, num_sam
     ft_func_grid = np.fft.fftn(reshaped_func_grid)
     ft_func_grid_shifted = np.fft.fftshift(ft_func_grid)
     # Return the absolute value of this grid squared
+    time3 = time.time()
+    print(time2-time1)
+    print(time3-time2)
+
     return np.abs(ft_func_grid_shifted)**2
 
 def n_o(wavelength):
@@ -204,6 +212,7 @@ def calculate_conditional_probability(xs_pos, ys_pos, xi_pos, yi_pos, thetap, om
     """
     momentum_span_wide = simulation_parameters.get("momentum_span_wide")
     momentum_span_narrow = simulation_parameters.get("momentum_span_narrow")
+    num_cores = simulation_parameters.get("num_cores")
 
     dqix = (omegai / C) * momentum_span_wide
     dqiy = (omegai / C) * momentum_span_wide
@@ -216,7 +225,7 @@ def calculate_conditional_probability(xs_pos, ys_pos, xi_pos, yi_pos, thetap, om
     rate_integrand = get_rate_integrand(thetap, omegai, omegas, simulation_parameters)
     result_grid = grid_integration_momentum(f=rate_integrand, dqix=dqix, dqiy=dqiy,
                                             dqx=dqx, dqy=dqy, num_samples_wide=num_samples_momentum_wide,
-                                            num_samples_narrow=num_samples_momentum_narrow)
+                                            num_samples_narrow=num_samples_momentum_narrow, num_cores=num_cores)
 
     # Select out the signal by index closest to input point
     xi_samples = 1 / np.linspace(-dqix, dqix, num_samples_momentum_wide) # TODO, unclear HOW to label the Fourier transform axes after FT
@@ -249,6 +258,7 @@ def calculate_rings(thetap, omegai, omegas, simulation_parameters):
     """
     momentum_span_wide = simulation_parameters.get("momentum_span_wide")
     momentum_span_narrow = simulation_parameters.get("momentum_span_narrow")
+    num_cores = simulation_parameters.get("num_cores")
 
     dqix = (omegai / C) * momentum_span_wide
     dqiy = (omegai / C) * momentum_span_wide
@@ -261,7 +271,7 @@ def calculate_rings(thetap, omegai, omegas, simulation_parameters):
     rate_integrand = get_rate_integrand(thetap, omegai, omegas, simulation_parameters)
     result_grid = grid_integration_momentum(f=rate_integrand, dqix=dqix, dqiy=dqiy, dqx=dqx, dqy=dqy,
                                             num_samples_wide=num_samples_momentum_wide,
-                                            num_samples_narrow=num_samples_momentum_narrow)
+                                            num_samples_narrow=num_samples_momentum_narrow, num_cores=num_cores)
 
     # Sum result over two dimensions (integrate) TODO multiply by volume also
     result_grid_sum_dx = np.sum(result_grid, axis=3)
@@ -382,11 +392,7 @@ def simulate_ring_slice(simulation_parameters):
     idler_y_pos = simulation_parameters["idler_y_pos"]
 
     save_directory = simulation_parameters["save_directory"]
-    seed = simulation_parameters["random_seed"]
     num_cores = simulation_parameters["simulation_cores"]
-
-    # Seed for reproducibility
-    np.random.seed(seed)
 
     x_signal = np.linspace(-x_signal_span, x_signal_span, num_plot_x_points) #TODO standardize x_signal or signal_x
     sweep_points = np.arange(-idler_x_span, idler_x_span, idler_x_increment)
@@ -396,7 +402,7 @@ def simulate_ring_slice(simulation_parameters):
                                                        thetap=thetap, omegai=omegai, omegas=omegas, simulation_parameters=simulation_parameters)
 
     # Inefficient; you don't have to call this each time (below)
-    z1 = Parallel(n_jobs=num_cores)(delayed(parallel_calc_conditional_prob)(x_s, signal_y_pos, sweep_points) for x_s in x_signal)
+    z1 = [parallel_calc_conditional_prob(x_s, signal_y_pos, sweep_points) for x_s in x_signal]
 
     probs = np.array(z1)
 
@@ -440,10 +446,6 @@ def simulate_rings(simulation_parameters):
     :param simulation_parameters: A dict containing relevant parameters for running the simulation.
     """
     start_time = time.time()
-
-    # Seed for reproducibility
-    seed = simulation_parameters["random_seed"]
-    np.random.seed(seed)
 
     thetap = simulation_parameters["thetap"] # Incident pump angle, in Radians
     omegap = simulation_parameters["omegap"] # Pump frequency (Radians / sec)

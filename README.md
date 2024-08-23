@@ -1,7 +1,11 @@
 # spdc-simulator
-Simulate count rates for SPDC (BBO bulk crystal)
+Simulate count rates for SPDC (BBO bulk crystal).
 
 TODO:
+- Fig out parallelization
+- fig out axes tick labels
+- Fix conditional probability plot
+
 - Type II noncollinear
 - Plot total output power as a function of theta_p and other params
 - Don't pass omegap where unnecessary
