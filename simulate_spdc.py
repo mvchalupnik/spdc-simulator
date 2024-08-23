@@ -283,7 +283,7 @@ def calculate_rings(thetap, omegai, omegas, simulation_parameters):
     dqy = (omegas / C) * momentum_span_narrow
 
     rate_integrand = get_rate_integrand(thetap, omegai, omegas, simulation_parameters)
-    result_grid, dix, diy, dx, dy = grid_integration_momentum(f=rate_integrand, dqix=dqix, dqiy=dqiy, dqx=dqx, dqy=dqy,
+    result_grid, xis, yis, dxs, dys = grid_integration_momentum(f=rate_integrand, dqix=dqix, dqiy=dqiy, dqx=dqx, dqy=dqy,
                                             num_samples_wide=num_samples_momentum_wide,
                                             num_samples_narrow=num_samples_momentum_narrow, num_cores=num_cores)
 
@@ -291,7 +291,7 @@ def calculate_rings(thetap, omegai, omegas, simulation_parameters):
     result_grid_sum_over_dx = np.sum(result_grid, axis=3)
     result_grid_sum_over_dx_and_dy = np.sum(result_grid_sum_over_dx, axis=2)
 
-    return result_grid_sum_over_dx_and_dy
+    return result_grid_sum_over_dx_and_dy, xis, yis
 
 
 def simulate_ring_momentum(simulation_parameters):
@@ -480,7 +480,7 @@ def simulate_rings(simulation_parameters):
     save_directory = simulation_parameters["save_directory"]
 
     # Run calculate_pair_generation_rate in parallel
-    Z1 = calculate_rings(thetap=thetap, omegai=omegai, omegas=omegas,
+    Z1, xis, yis = calculate_rings(thetap=thetap, omegai=omegai, omegas=omegas,
                          simulation_parameters=simulation_parameters)
 
     # Next, fix idler and integrate over signal
@@ -495,8 +495,8 @@ def simulate_rings(simulation_parameters):
 
     # Plot results
     plt.figure(figsize=(8, 6))
-#    plt.imshow(np.abs(Z), extent=(x.min(), x.max(), y.min(), y.max()), origin='lower', cmap='gray')
-    plt.imshow(np.abs(Z1), origin='lower', cmap='gray')
+    plt.imshow(np.abs(Z1), extent=(xis.min(), xis.max(), yis.min(), yis.max()), origin='lower', cmap='gray')
+#    plt.imshow(np.abs(Z1), origin='lower', cmap='gray')
 
     plt.xlabel("x (m)")
     plt.ylabel("y (m)")

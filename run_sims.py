@@ -77,7 +77,7 @@ def main():
         "momentum_span_wide": 0.045,
         "momentum_span_narrow": 0.001,
         "num_samples_momentum_wide": 80, #800 for good result
-        "num_samples_momentum_narrow": 50,
+        "num_samples_momentum_narrow": 50, #50 for good result
         "pump_waist_size": w0,
         "pump_waist_distance": d,
         "z_pos": z_pos,
