@@ -13,6 +13,8 @@ def main():
     thetap = 28.95 * np.pi / 180
   #  thetap = 28.84 * np.pi / 180
    # thetap = 28.64 * np.pi / 180
+    thetap = 40.99 * np.pi / 180
+    thetap = 41.78 * np.pi / 180
 
     w0 = 388e-6 # beam waist in meters, page 8
     d = 107.8e-2 # pg 15
@@ -32,11 +34,12 @@ def main():
         "signal_y_pos": 0,
         "idler_x_pos": 0,
         "idler_y_pos": 0,
-        "momentum_span": 0.05,
+        "momentum_span": 0.08,
         "pump_waist_size": w0,
         "pump_waist_distance": d,
         "z_pos": z_pos,
         "crystal_length": crystal_length,
+        "phase_matching_type": 2,#["2s", "2i"],
         "save_directory": dir_string,
     }
     simulate_ring_momentum(simulation_parameters=simulation_parameters)
@@ -60,6 +63,7 @@ def main():
     #     "pump_waist_distance": d,
     #     "z_pos": z_pos,
     #     "crystal_length": crystal_length,
+    #    "phase_matching_type": 2,
     #     "simulation_cores": 4,
     #     "save_directory": dir_string,
     # }
@@ -82,6 +86,7 @@ def main():
         "pump_waist_distance": d,
         "z_pos": z_pos,
         "crystal_length": crystal_length,
+        "phase_matching_type": 2,
         "simulation_cores": 4,
         "save_directory": dir_string,
     }

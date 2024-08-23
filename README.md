@@ -4,7 +4,7 @@ Simulate count rates for SPDC (BBO bulk crystal).
 TODO:
 Basics
 - Fig out parallelization
-- fig out axes tick labels
+- fig out axes tick labels- check this
 - Fix conditional probability plot
 
 Extras
