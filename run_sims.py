@@ -76,8 +76,8 @@ def main():
         "signal_x_pos": 0.0016,
         "momentum_span_wide": 0.045,
         "momentum_span_narrow": 0.001,
-        "num_samples_momentum_wide": 200,
-        "num_samples_momentum_narrow": 20,
+        "num_samples_momentum_wide": 600, 
+        "num_samples_momentum_narrow": 20, #50
         "idler_y_pos": 0,
         "signal_y_pos": 0,
         "pump_waist_size": w0,
@@ -91,6 +91,28 @@ def main():
 
     simulate_conditional_probability(simulation_parameters=simulation_parameters)
 
+
+    # ################ SIMULATE RINGS
+
+    simulation_parameters = {
+        "thetap": thetap,
+        "omegap": (2 * np.pi * C) / pump_wavelength,
+        "omegai": (2 * np.pi * C) / down_conversion_wavelength,
+        "omegas": (2 * np.pi * C) / down_conversion_wavelength,
+        "momentum_span_wide": 0.045,
+        "momentum_span_narrow": 0.001,
+        "num_samples_momentum_wide": 600, #800 for good result
+        "num_samples_momentum_narrow": 20, #50 for good result
+        "pump_waist_size": w0,
+        "pump_waist_distance": d,
+        "z_pos": z_pos,
+        "crystal_length": crystal_length,
+        "phase_matching_type": 2,
+        "simulation_cores": 4,
+        "save_directory": dir_string,
+    }
+
+    simulate_rings(simulation_parameters=simulation_parameters)
 
     # ################ SIMULATE RINGS
 

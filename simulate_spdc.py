@@ -61,11 +61,11 @@ def grid_integration_momentum(f, dqix, dqiy, dqx, dqy, num_samples_wide, num_sam
         else:
             ft_axis = np.arange(-(num_points-1)/2, (num_points-1)/2)*1/(q_increment*num_points)
         return ft_axis
-
-    xi_array = get_fourier_transformed_axis(q_increment=(2*dqix)/num_samples_wide, num_points=num_samples_wide)
-    yi_array = get_fourier_transformed_axis(q_increment=(2*dqiy)/num_samples_wide, num_points=num_samples_wide)
-    dx_array = get_fourier_transformed_axis(q_increment=(2*dqx)/num_samples_narrow, num_points=num_samples_narrow)
-    dy_array = get_fourier_transformed_axis(q_increment=(2*dqy)/num_samples_narrow, num_points=num_samples_narrow)
+        #2pi factor? todo
+    xi_array = get_fourier_transformed_axis(q_increment=(2*dqix)/(2*np.pi*num_samples_wide), num_points=num_samples_wide)
+    yi_array = get_fourier_transformed_axis(q_increment=(2*dqiy)/(2*np.pi*num_samples_wide), num_points=num_samples_wide)
+    dx_array = get_fourier_transformed_axis(q_increment=(2*dqx)/(2*np.pi*num_samples_narrow), num_points=num_samples_narrow)
+    dy_array = get_fourier_transformed_axis(q_increment=(2*dqy)/(2*np.pi*num_samples_narrow), num_points=num_samples_narrow)
 
     # Return the absolute value of the Fourier transformed grid squared, as well as the four new axes
     return np.abs(ft_func_grid_shifted)**2, xi_array, yi_array, dx_array, dy_array
@@ -261,7 +261,7 @@ def get_rate_integrand(thetap, omegai, omegas, simulation_parameters, phase_matc
     return rate_integrand
 
 
-def calculate_conditional_probability(xi_pos, yi_pos, xs_pos, ys_pos, thetap, omegai, omegas, simulation_parameters):
+def calculate_conditional_probability(xi_pos, yi_pos, thetap, omegai, omegas, simulation_parameters):
     """
     Return the conditional probability of detecting the idler at any x pos and at yi_pos given the signal is detected
     at (xs_pos, ys_pos). Equation 84.
@@ -291,23 +291,19 @@ def calculate_conditional_probability(xi_pos, yi_pos, xs_pos, ys_pos, thetap, om
                                                 num_samples_narrow=num_samples_momentum_narrow, num_cores=num_cores)
 
         # Choose conditional probability grid of one photon
-        xs_pos = 2e-3
-        ys_pos = 0 # TODO pass in
+        xi_pos = 2e-3 #TODO pass in
+        yi_pos = 0 # TODO pass in
 
-        dx = xs_pos + xi_pos
-        dy = ys_pos + yi_pos
-        dx_index = (np.abs(dx - dxs)).argmin()
-        dy_index = (np.abs(dy - dys)).argmin()
-        import pdb; pdb.set_trace()
+        index_xi = (np.abs(xi_pos - xis)).argmin()
+        index_yi = (np.abs(yi_pos - yis)).argmin()
 
-#     index_xi = (np.abs(xi_pos - xis)).argmin()
-#     index_yi = (np.abs(yi_pos - yis)).argmin()
-        result_grid_probability = result_grid[:][:][dx_index][dy_index]
+        result_grid_probability = result_grid[index_xi, index_yi, :, :]
 
-        # Transform axes
-        xss = dxs - xs_pos
-        yss = dys - ys_pos
-        return result_grid_probability, xis, yis
+        # # Transform axes
+        xss = dxs - xi_pos
+        yss = dys - yi_pos
+
+        return result_grid_probability, xss, yss
 
     if phase_matching_type == 1:
         result, xs, ys = get_integral_grid(phase_matching_case="1")
