@@ -55,18 +55,17 @@ def grid_integration_momentum(f, dqix, dqiy, dqx, dqy, num_samples_wide, num_sam
     print(time3-time2)
 
     # Find the four Fourier transformed axes
-    # dx * dq = 1/N for N-point fft
-    def get_fourier_transformed_axis(dq, num_points):
+    def get_fourier_transformed_axis(q_increment, num_points):
         if num_points % 2 == 0:
-            ft_axis = np.arange(-num_points/2, num_points/2-1)*1/(dq*num_points)
+            ft_axis = np.arange(-num_points/2, num_points/2-1)*1/(q_increment*num_points)
         else:
-            ft_axis = np.arange(-(num_points-1)/2, (num_points-1)/2)*1/(dq*num_points)
+            ft_axis = np.arange(-(num_points-1)/2, (num_points-1)/2)*1/(q_increment*num_points)
         return ft_axis
 
-    xi_array = get_fourier_transformed_axis(dq=dqix, num_points=num_samples_wide)
-    yi_array = get_fourier_transformed_axis(dq=dqiy, num_points=num_samples_wide)
-    dx_array = get_fourier_transformed_axis(dq=dqx, num_points=num_samples_narrow)
-    dy_array = get_fourier_transformed_axis(dq=dqy, num_points=num_samples_narrow)
+    xi_array = get_fourier_transformed_axis(q_increment=(2*dqix)/num_samples_wide, num_points=num_samples_wide)
+    yi_array = get_fourier_transformed_axis(q_increment=(2*dqiy)/num_samples_wide, num_points=num_samples_wide)
+    dx_array = get_fourier_transformed_axis(q_increment=(2*dqx)/num_samples_narrow, num_points=num_samples_narrow)
+    dy_array = get_fourier_transformed_axis(q_increment=(2*dqy)/num_samples_narrow, num_points=num_samples_narrow)
 
     # Return the absolute value of the Fourier transformed grid squared, as well as the four new axes
     return np.abs(ft_func_grid_shifted)**2, xi_array, yi_array, dx_array, dy_array
@@ -262,51 +261,67 @@ def get_rate_integrand(thetap, omegai, omegas, simulation_parameters, phase_matc
     return rate_integrand
 
 
-# def calculate_conditional_probability(xi_pos, yi_pos, xs_pos, ys_pos, thetap, omegai, omegas, simulation_parameters):
-#     """
-#     Return the conditional probability of detecting the idler at any x pos and at yi_pos given the signal is detected
-#     at (xs_pos, ys_pos). Equation 84.
+def calculate_conditional_probability(xi_pos, yi_pos, xs_pos, ys_pos, thetap, omegai, omegas, simulation_parameters):
+    """
+    Return the conditional probability of detecting the idler at any x pos and at yi_pos given the signal is detected
+    at (xs_pos, ys_pos). Equation 84.
 
-#     :param ys_pos: Location of signal photon in the y direction a distance z away from the crystal
-#     :param xi_pos: Location of idler photon in the x direction a distance z away from the crystal
-#     :param yi_pos: Location of idler photon in the y direction a distance z away from the crystal
-#     """
-#     momentum_span_wide = simulation_parameters.get("momentum_span_wide")
-#     momentum_span_narrow = simulation_parameters.get("momentum_span_narrow")
-#     num_samples_momentum_wide = simulation_parameters["num_samples_momentum_wide"]
-#     num_samples_momentum_narrow = simulation_parameters["num_samples_momentum_narrow"]
+    :param ys_pos: Location of signal photon in the y direction a distance z away from the crystal
+    :param xi_pos: Location of idler photon in the x direction a distance z away from the crystal
+    :param yi_pos: Location of idler photon in the y direction a distance z away from the crystal
+    TODO reduce duplicate code with calculate_rings
+    """
+    momentum_span_wide = simulation_parameters.get("momentum_span_wide")
+    momentum_span_narrow = simulation_parameters.get("momentum_span_narrow")
+    num_samples_momentum_wide = simulation_parameters["num_samples_momentum_wide"]
+    num_samples_momentum_narrow = simulation_parameters["num_samples_momentum_narrow"]
+    num_cores = simulation_parameters.get("num_cores")
+    phase_matching_type = simulation_parameters.get("phase_matching_type")
 
-#     num_cores = simulation_parameters.get("num_cores")
+    dqix = (omegai / C) * momentum_span_wide
+    dqiy = (omegai / C) * momentum_span_wide
+    dqx = (omegas / C) * momentum_span_narrow
+    dqy = (omegas / C) * momentum_span_narrow
 
-#     dqix = (omegai / C) * momentum_span_wide
-#     dqiy = (omegai / C) * momentum_span_wide
-#     dqx = (omegas / C) * momentum_span_narrow
-#     dqy = (omegas / C) * momentum_span_narrow
+    def get_integral_grid(phase_matching_case):
+        rate_integrand = get_rate_integrand(thetap, omegai, omegas, simulation_parameters, phase_matching_case)
+        # TODO make below more general? wrt 1 and 2 not s and i
+        result_grid, xis, yis, dxs, dys = grid_integration_momentum(f=rate_integrand, dqix=dqix, dqiy=dqiy, dqx=dqx, dqy=dqy,
+                                                num_samples_wide=num_samples_momentum_wide,
+                                                num_samples_narrow=num_samples_momentum_narrow, num_cores=num_cores)
 
-#     rate_integrand = get_rate_integrand(thetap, omegai, omegas, simulation_parameters, phase_matching_case)
-#     result_grid, xis, yis, dxs, dys = grid_integration_momentum(f=rate_integrand, dqix=dqix, dqiy=dqiy,
-#                                             dqx=dqx, dqy=dqy, num_samples_wide=num_samples_momentum_wide,
-#                                             num_samples_narrow=num_samples_momentum_narrow, num_cores=num_cores)
+        # Choose conditional probability grid of one photon
+        xs_pos = 2e-3
+        ys_pos = 0 # TODO pass in
 
-#     # Select out the signal by index closest to input point
+        dx = xs_pos + xi_pos
+        dy = ys_pos + yi_pos
+        dx_index = (np.abs(dx - dxs)).argmin()
+        dy_index = (np.abs(dy - dys)).argmin()
+        import pdb; pdb.set_trace()
+
 #     index_xi = (np.abs(xi_pos - xis)).argmin()
 #     index_yi = (np.abs(yi_pos - yis)).argmin()
+        result_grid_probability = result_grid[:][:][dx_index][dy_index]
 
-#     dx = xs_pos - xi_pos
-#     index_dx = (np.abs(dx - dxs)).argmin()
+        # Transform axes
+        xss = dxs - xs_pos
+        yss = dys - ys_pos
+        return result_grid_probability, xis, yis
 
-#     dy = ys_pos - yi_pos
-#     index_dy = (np.abs(dy - dys)).argmin()
+    if phase_matching_type == 1:
+        result, xs, ys = get_integral_grid(phase_matching_case="1")
+    elif phase_matching_type == 2:
+        result1, _, _ = get_integral_grid(phase_matching_case="2s") #TODO ENUMS!
+        result2, xs, ys = get_integral_grid(phase_matching_case="2i")
+        result = result1 + result2
+    else:
+        raise ValueError(f"Unknown phase_matching_type {phase_matching_type}.")
 
-#     # Return the x slice idler probability at the given y index and signal x and y.
-#     result = result_grid[index_xi][index_yi][index_dx][index_dy]
-#     print(index_xi)
-#     print(index_dx)
-
-#     return result
-#     #TODO expand to include type II
-#     # Also could return signal probability
-#     # Also todo, return the actual points used
+    return result, xs, ys
+    #TODO expand to include type II
+    # Also could return signal probability
+    # Also todo, return the actual points used
 
 
 def calculate_rings(thetap, omegai, omegas, simulation_parameters):
@@ -346,7 +361,7 @@ def calculate_rings(thetap, omegai, omegas, simulation_parameters):
         result2, xs, ys = get_integral_grid(phase_matching_case="2i")
         result = result1 + result2
     else:
-        raise ValueError(f"Unknown phase_matching_type {phase_matching_type}")
+        raise ValueError(f"Unknown phase_matching_type {phase_matching_type}.")
 
     return result, xs, ys
 
@@ -394,7 +409,7 @@ def simulate_ring_momentum(simulation_parameters):
         Z1 = rate_integrand_2s(X, Y, 2*X, 2*Y) + rate_integrand_2i(X, Y, 2*X, 2*Y)
         Z2 = rate_integrand_2s(X, Y, 0, 0) + rate_integrand_2i(X, Y, 0, 0)
     else:
-        raise ValueError(f"Unknown phase_matching_type {phase_matching_type}")
+        raise ValueError(f"Unknown phase_matching_type {phase_matching_type}.")
 
     fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2)
 
@@ -451,7 +466,7 @@ def simulate_ring_momentum(simulation_parameters):
     with open(f"{save_directory}/{time_str}_momentum_params.txt", 'w') as file:
         file.write(json.dumps(simulation_parameters))
 
-def simulate_ring_slice(simulation_parameters):
+def simulate_conditional_probability(simulation_parameters):
     """
     Simulate and plot a slice of the conditional probabilities of detecting the idler photon, 
     given the signal photon is detected on the x-axis.
@@ -476,28 +491,28 @@ def simulate_ring_slice(simulation_parameters):
     save_directory = simulation_parameters["save_directory"]
     num_cores = simulation_parameters["simulation_cores"]
 
-    x_idler = np.linspace(-idler_x_span, idler_x_span, num_plot_x_points)
+    # x_idler = np.linspace(-idler_x_span, idler_x_span, num_plot_x_points)
 
-    calculate_conditional_probability_vec = np.vectorize(calculate_conditional_probability)
-    parallel_calc_conditional_prob = functools.partial(calculate_conditional_probability_vec, yi_pos=idler_y_pos, xs_pos=signal_x_pos, ys_pos=signal_y_pos,
-                                                       thetap=thetap, omegai=omegai, omegas=omegas, simulation_parameters=simulation_parameters)
+    # calculate_conditional_probability_vec = np.vectorize(calculate_conditional_probability)
+    # parallel_calc_conditional_prob = functools.partial(calculate_conditional_probability_vec, yi_pos=idler_y_pos, xs_pos=signal_x_pos, ys_pos=signal_y_pos,
+    #                                                    thetap=thetap, omegai=omegai, omegas=omegas, simulation_parameters=simulation_parameters)
 
-    # Inefficient; you don't have to call this each time (below)
-    z1 = [parallel_calc_conditional_prob(x_i) for x_i in x_idler] # You should also return the actual point that got plotted
+    # # Inefficient; you don't have to call this each time (below)
+    # z1 = [parallel_calc_conditional_prob(x_i) for x_i in x_idler] # You should also return the actual point that got plotted
 
     # Run calculate_pair_generation_rate
   ##  xs_pos, ys_pos, xi_pos, yi_pos, thetap, omegai, omegas, simulation_parameters
-    # Z1, x_arr = calculate_conditional_probability(xi_pos=x_idlers, yi_pos=idler_y_pos, xs_pos=signal_x_pos, ys_pos=signal_y_pos,
-    #                                               thetap=thetap, omegai=omegai, omegas=omegas,
-    #                                               simulation_parameters=simulation_parameters)
-
-    probs = np.array(z1)
+    Z1, xis, yis = calculate_conditional_probability(xi_pos=0, yi_pos=idler_y_pos, xs_pos=signal_x_pos, ys_pos=signal_y_pos,
+                                                  thetap=thetap, omegai=omegai, omegas=omegas,
+                                                  simulation_parameters=simulation_parameters)
 
     plt.figure(figsize=(8, 6))
-    plt.plot(x_idler, probs) #TODO label
-    plt.legend()
+    plt.imshow(np.abs(Z1), extent=(xis.min(), xis.max(), yis.min(), yis.max()), origin='lower', cmap='gray')
 
-    plt.title( "Conditional probability of signal given idler at different locations on x-axis" )
+    plt.xlabel("x (m)")
+    plt.ylabel("y (m)")
+
+    plt.title( "Conditional probability of signal given idler at TODO" )
 
     end_time = time.time()
     print(f"Elapsed time: {end_time - start_time}")
@@ -505,24 +520,24 @@ def simulate_ring_slice(simulation_parameters):
     # Get current time for file name
     time_str = get_current_time()
 
-    plt.savefig(f"{save_directory}/{time_str}_rings_slice.png", dpi=300)
+    plt.savefig(f"{save_directory}/{time_str}_rings_conditional_probability.png", dpi=300)
     plt.close()
 
     # Save parameters and data
-    with open(f"{save_directory}/{time_str}_ring_slice.pkl", "wb") as file:
-        pickle.dump(probs, file)
+    with open(f"{save_directory}/{time_str}_ring_conditional_probability.pkl", "wb") as file:
+        pickle.dump(Z1, file)
 
     # Save parameters to a pickled file
-    with open(f"{save_directory}/{time_str}_ring_slice_params.pkl", "wb") as file:
+    with open(f"{save_directory}/{time_str}_ring_conditional_probability_params.pkl", "wb") as file:
         pickle.dump(simulation_parameters, file)
 
     # Save parameters to a text file
-    with open(f"{save_directory}/{time_str}_ring_slice_params.txt", 'w') as file:
+    with open(f"{save_directory}/{time_str}_ring_conditional_probability_params.txt", 'w') as file:
         file.write(json.dumps(simulation_parameters))
 
     # Save time to a text file
     time_info = {"Time Elapsed in seconds" : end_time - start_time}
-    with open(f"{save_directory}/{time_str}_ring_slice_time.txt", 'w') as file:
+    with open(f"{save_directory}/{time_str}_ring_conditional_probability_time.txt", 'w') as file:
         file.write(json.dumps(time_info))
 
 def simulate_rings(simulation_parameters):
@@ -564,7 +579,6 @@ def simulate_rings(simulation_parameters):
     # Plot results
     plt.figure(figsize=(8, 6))
     plt.imshow(np.abs(Z1), extent=(xis.min(), xis.max(), yis.min(), yis.max()), origin='lower', cmap='gray')
-#    plt.imshow(np.abs(Z1), origin='lower', cmap='gray')
 
     plt.xlabel("x (m)")
     plt.ylabel("y (m)")
@@ -591,7 +605,6 @@ def simulate_rings(simulation_parameters):
         file.write(json.dumps(time_info))
 
 
-# todo, type 2 noncollinear
 
 # Plot total output power as a function of theta_p and other params
 # TODO
