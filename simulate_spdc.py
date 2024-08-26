@@ -12,18 +12,19 @@ from file_utils import get_current_time
 C = 2.99792e8  # Speed of light, in meters per second
 
 
-def grid_integration_momentum(f, dqix, dqiy, dqx, dqy, num_samples_wide, num_samples_narrow, num_cores):
+def grid_integration_momentum(f, dqix, dqiy, dqx, dqy, num_samples_wide_x, num_samples_wide_y, num_samples_narrow_x,
+                              num_samples_narrow_y, num_cores):
     """
     Integrate along momentum dimensions.
     """
-    qix_array = np.linspace(-dqix, dqix, num_samples_wide)
-    qiy_array = np.linspace(-dqiy, dqiy, num_samples_wide)
+    qix_array = np.linspace(-dqix, dqix, num_samples_wide_x)
+    qiy_array = np.linspace(-dqiy, dqiy, num_samples_wide_y)
 
     # From conservation of momentum, dqix should be close to -dqsx and dqiy should be close to -dqsy
     # so we can write dqix = -dqsx + dqx and dqiy = -dqsy + dqy 
     # and then can use fewer points of integration along the dqx, dqy dimensions.
-    dqx_array = np.linspace(-dqx, dqx, num_samples_narrow)
-    dqy_array = np.linspace(-dqy, dqy, num_samples_narrow)
+    dqx_array = np.linspace(-dqx, dqx, num_samples_narrow_x)
+    dqy_array = np.linspace(-dqy, dqy, num_samples_narrow_y)
 
     # Generate the coordinate grid using meshgrid
     qix_grid, qiy_grid, dqx_grid, dqy_grid = np.meshgrid(qix_array, qiy_array, dqx_array, dqy_array,
@@ -45,7 +46,7 @@ def grid_integration_momentum(f, dqix, dqiy, dqx, dqy, num_samples_wide, num_sam
     # Reshape grid
     reshaped_func_grid = np.reshape(func_grid, [len(qix_array), len(qiy_array), len(dqx_array), len(dqy_array)])
 
-    # To do: do a Fourier transform on four axes
+    # N-dimensional Fourier transform across all four axes
     ft_func_grid = np.fft.fftn(reshaped_func_grid)
     ft_func_grid_shifted = np.fft.fftshift(ft_func_grid)
 
@@ -62,10 +63,10 @@ def grid_integration_momentum(f, dqix, dqiy, dqx, dqy, num_samples_wide, num_sam
             ft_axis = np.arange(-(num_points-1)/2, (num_points-1)/2)*1/(q_increment*num_points)
         return ft_axis
         #2pi factor? todo
-    xi_array = get_fourier_transformed_axis(q_increment=(2*dqix)/(2*np.pi*num_samples_wide), num_points=num_samples_wide)
-    yi_array = get_fourier_transformed_axis(q_increment=(2*dqiy)/(2*np.pi*num_samples_wide), num_points=num_samples_wide)
-    dx_array = get_fourier_transformed_axis(q_increment=(2*dqx)/(2*np.pi*num_samples_narrow), num_points=num_samples_narrow)
-    dy_array = get_fourier_transformed_axis(q_increment=(2*dqy)/(2*np.pi*num_samples_narrow), num_points=num_samples_narrow)
+    xi_array = get_fourier_transformed_axis(q_increment=(2*dqix)/(2*np.pi*num_samples_wide_x), num_points=num_samples_wide_x)
+    yi_array = get_fourier_transformed_axis(q_increment=(2*dqiy)/(2*np.pi*num_samples_wide_y), num_points=num_samples_wide_y)
+    dx_array = get_fourier_transformed_axis(q_increment=(2*dqx)/(2*np.pi*num_samples_narrow_x), num_points=num_samples_narrow_x)
+    dy_array = get_fourier_transformed_axis(q_increment=(2*dqy)/(2*np.pi*num_samples_narrow_y), num_points=num_samples_narrow_y)
 
     # Return the absolute value of the Fourier transformed grid squared, as well as the four new axes
     return np.abs(ft_func_grid_shifted)**2, xi_array, yi_array, dx_array, dy_array
@@ -327,24 +328,35 @@ def calculate_rings(thetap, omegai, omegas, simulation_parameters):
     :param dx: One half the area of real space centered around the origin along the x direction which the idler (signal) will be integrated over
     :param dy: One half the area of real space centered around the origin along the x direction which the idler (signal) will be integrated over
     """
-    momentum_span_wide = simulation_parameters.get("momentum_span_wide")
-    momentum_span_narrow = simulation_parameters.get("momentum_span_narrow")
-    num_samples_momentum_wide = simulation_parameters["num_samples_momentum_wide"]
-    num_samples_momentum_narrow = simulation_parameters["num_samples_momentum_narrow"]
+    momentum_span_wide_x = simulation_parameters.get("momentum_span_wide_x")
+    momentum_span_wide_y = simulation_parameters.get("momentum_span_wide_y")
+
+    momentum_span_narrow_x = simulation_parameters.get("momentum_span_narrow_x")
+    momentum_span_narrow_y = simulation_parameters.get("momentum_span_narrow_y")
+
+    num_samples_momentum_wide_x = simulation_parameters["num_samples_momentum_wide_x"]
+    num_samples_momentum_wide_y = simulation_parameters["num_samples_momentum_wide_y"]
+
+    num_samples_momentum_narrow_x = simulation_parameters["num_samples_momentum_narrow_x"]
+    num_samples_momentum_narrow_y = simulation_parameters["num_samples_momentum_narrow_y"]
+
     num_cores = simulation_parameters.get("num_cores")
     phase_matching_type = simulation_parameters.get("phase_matching_type")
 
-    dqix = (omegai / C) * momentum_span_wide
-    dqiy = (omegai / C) * momentum_span_wide
-    dqx = (omegas / C) * momentum_span_narrow
-    dqy = (omegas / C) * momentum_span_narrow
+    dqix = (omegai / C) * momentum_span_wide_x
+    dqiy = (omegai / C) * momentum_span_wide_y
+    dqx = (omegas / C) * momentum_span_narrow_x
+    dqy = (omegas / C) * momentum_span_narrow_y
 
     def get_integral_grid(phase_matching_case):
         rate_integrand = get_rate_integrand(thetap, omegai, omegas, simulation_parameters, phase_matching_case)
         # TODO make below more general? wrt 1 and 2 not s and i
         result_grid, xis, yis, dxs, dys = grid_integration_momentum(f=rate_integrand, dqix=dqix, dqiy=dqiy, dqx=dqx, dqy=dqy,
-                                                num_samples_wide=num_samples_momentum_wide,
-                                                num_samples_narrow=num_samples_momentum_narrow, num_cores=num_cores)
+                                                num_samples_wide_x=num_samples_momentum_wide_x,
+                                                num_samples_wide_y=num_samples_momentum_wide_y,
+                                                num_samples_narrow_x=num_samples_momentum_narrow_x, 
+                                                num_samples_narrow_y=num_samples_momentum_narrow_y, 
+                                                num_cores=num_cores)
 
         # Sum result over two dimensions (integrate) TODO multiply by volume also
         result_grid_sum_over_dx = np.sum(result_grid, axis=3)
@@ -377,7 +389,8 @@ def simulate_ring_momentum(simulation_parameters):
     omegas = simulation_parameters["omegas"] # Signal frequency (Radians / sec)
     phase_matching_type = simulation_parameters["phase_matching_type"] # Type I or Type II phase-matching
 
-    momentum_span = simulation_parameters["momentum_span"]
+    momentum_span_x = simulation_parameters["momentum_span_x"]
+    momentum_span_y = simulation_parameters["momentum_span_y"]
     signal_x_pos = simulation_parameters["signal_x_pos"] #change to xs_pos TODO
     signal_y_pos = simulation_parameters["signal_y_pos"]
     idler_x_pos = simulation_parameters["idler_x_pos"]
@@ -386,10 +399,10 @@ def simulate_ring_momentum(simulation_parameters):
  
     save_directory = simulation_parameters["save_directory"]
 
-    dqix = (omegai / C) * momentum_span
-    dqiy = (omegai / C) * momentum_span
-    dqsx = (omegas / C) * momentum_span
-    dqsy = (omegas / C) * momentum_span
+    dqix = (omegai / C) * momentum_span_x
+    dqiy = (omegai / C) * momentum_span_y
+    dqsx = (omegas / C) * momentum_span_x
+    dqsy = (omegas / C) * momentum_span_y
 
     x = np.linspace(-dqix, dqix, num_plot_qx_points)
     y = np.linspace(-dqiy, dqiy, num_plot_qy_points)
@@ -498,7 +511,7 @@ def simulate_conditional_probability(simulation_parameters):
 
     # Run calculate_pair_generation_rate
   ##  xs_pos, ys_pos, xi_pos, yi_pos, thetap, omegai, omegas, simulation_parameters
-    Z1, xis, yis = calculate_conditional_probability(xi_pos=0, yi_pos=idler_y_pos, xs_pos=signal_x_pos, ys_pos=signal_y_pos,
+    Z1, xis, yis = calculate_conditional_probability(xi_pos=0, yi_pos=idler_y_pos,
                                                   thetap=thetap, omegai=omegai, omegas=omegas,
                                                   simulation_parameters=simulation_parameters)
 

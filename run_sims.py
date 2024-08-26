@@ -34,7 +34,8 @@ def main():
         "signal_y_pos": 0,
         "idler_x_pos": 0,
         "idler_y_pos": 0,
-        "momentum_span": 0.05,
+        "momentum_span_x": 0.13,
+        "momentum_span_y": 0.075,
         "pump_waist_size": w0,
         "pump_waist_distance": d,
         "z_pos": z_pos,
@@ -55,7 +56,8 @@ def main():
         "signal_y_pos": 0,
         "idler_x_pos": 0,
         "idler_y_pos": 0,
-        "momentum_span": 0.045,
+        "momentum_span_x": 0.045,
+        "momentum_span_y": 0.045,
         "pump_waist_size": w0,
         "pump_waist_distance": d,
         "z_pos": z_pos,
@@ -65,21 +67,48 @@ def main():
     }
     simulate_ring_momentum(simulation_parameters=simulation_parameters)
 
-    ######### SIMULATE CONDITIONAL PROBABILITY
+    # ######### SIMULATE CONDITIONAL PROBABILITY
+    # simulation_parameters = {
+    #     "thetap": 28.84 * np.pi / 180,
+    #     "omegap": (2 * np.pi * C) / pump_wavelength,
+    #     "omegai": (2 * np.pi * C) / down_conversion_wavelength,
+    #     "omegas": (2 * np.pi * C) / down_conversion_wavelength,
+    #     "num_plot_x_points": 100,
+    #     "idler_x_span": 0.003,
+    #     "signal_x_pos": 0.0016,
+    #     "momentum_span_wide": 0.045,
+    #     "momentum_span_narrow": 0.001,
+    #     "num_samples_momentum_wide": 600, 
+    #     "num_samples_momentum_narrow": 20, #50
+    #     "idler_y_pos": 0,
+    #     "signal_y_pos": 0,
+    #     "pump_waist_size": w0,
+    #     "pump_waist_distance": d,
+    #     "z_pos": z_pos,
+    #     "crystal_length": crystal_length,
+    #     "phase_matching_type": 1,
+    #     "simulation_cores": 4,
+    #     "save_directory": dir_string,
+    # }
+
+    # simulate_conditional_probability(simulation_parameters=simulation_parameters)
+
+
+    # ################ SIMULATE RINGS
+
     simulation_parameters = {
-        "thetap": 28.84 * np.pi / 180,
+        "thetap": thetap,
         "omegap": (2 * np.pi * C) / pump_wavelength,
         "omegai": (2 * np.pi * C) / down_conversion_wavelength,
         "omegas": (2 * np.pi * C) / down_conversion_wavelength,
-        "num_plot_x_points": 100,
-        "idler_x_span": 0.003,
-        "signal_x_pos": 0.0016,
-        "momentum_span_wide": 0.045,
-        "momentum_span_narrow": 0.001,
-        "num_samples_momentum_wide": 600, 
-        "num_samples_momentum_narrow": 20, #50
-        "idler_y_pos": 0,
-        "signal_y_pos": 0,
+        "momentum_span_wide_x": 0.065,
+        "momentum_span_wide_y": 0.065,
+        "momentum_span_narrow_x": 0.001,
+        "momentum_span_narrow_y": 0.001,
+        "num_samples_momentum_wide_x": 400, #800 for good result
+        "num_samples_momentum_wide_y": 400, #800 for good result
+        "num_samples_momentum_narrow_x": 20, #50 for good result
+        "num_samples_momentum_narrow_y": 20, #50 for good result
         "pump_waist_size": w0,
         "pump_waist_distance": d,
         "z_pos": z_pos,
@@ -89,52 +118,29 @@ def main():
         "save_directory": dir_string,
     }
 
-    simulate_conditional_probability(simulation_parameters=simulation_parameters)
-
-
-    # ################ SIMULATE RINGS
-
-    simulation_parameters = {
-        "thetap": thetap,
-        "omegap": (2 * np.pi * C) / pump_wavelength,
-        "omegai": (2 * np.pi * C) / down_conversion_wavelength,
-        "omegas": (2 * np.pi * C) / down_conversion_wavelength,
-        "momentum_span_wide": 0.045,
-        "momentum_span_narrow": 0.001,
-        "num_samples_momentum_wide": 600, #800 for good result
-        "num_samples_momentum_narrow": 20, #50 for good result
-        "pump_waist_size": w0,
-        "pump_waist_distance": d,
-        "z_pos": z_pos,
-        "crystal_length": crystal_length,
-        "phase_matching_type": 2,
-        "simulation_cores": 4,
-        "save_directory": dir_string,
-    }
-
     simulate_rings(simulation_parameters=simulation_parameters)
 
     # ################ SIMULATE RINGS
 
-    simulation_parameters = {
-        "thetap": thetap,
-        "omegap": (2 * np.pi * C) / pump_wavelength,
-        "omegai": (2 * np.pi * C) / down_conversion_wavelength,
-        "omegas": (2 * np.pi * C) / down_conversion_wavelength,
-        "momentum_span_wide": 0.045,
-        "momentum_span_narrow": 0.001,
-        "num_samples_momentum_wide": 80, #800 for good result
-        "num_samples_momentum_narrow": 50, #50 for good result
-        "pump_waist_size": w0,
-        "pump_waist_distance": d,
-        "z_pos": z_pos,
-        "crystal_length": crystal_length,
-        "phase_matching_type": 2,
-        "simulation_cores": 4,
-        "save_directory": dir_string,
-    }
+    # simulation_parameters = {
+    #     "thetap": thetap,
+    #     "omegap": (2 * np.pi * C) / pump_wavelength,
+    #     "omegai": (2 * np.pi * C) / down_conversion_wavelength,
+    #     "omegas": (2 * np.pi * C) / down_conversion_wavelength,
+    #     "momentum_span_wide": 0.045,
+    #     "momentum_span_narrow": 0.001,
+    #     "num_samples_momentum_wide": 80, #800 for good result
+    #     "num_samples_momentum_narrow": 50, #50 for good result
+    #     "pump_waist_size": w0,
+    #     "pump_waist_distance": d,
+    #     "z_pos": z_pos,
+    #     "crystal_length": crystal_length,
+    #     "phase_matching_type": 2,
+    #     "simulation_cores": 4,
+    #     "save_directory": dir_string,
+    # }
 
-    simulate_rings(simulation_parameters=simulation_parameters)
+    # simulate_rings(simulation_parameters=simulation_parameters)
 
 
 if __name__=="__main__": 
