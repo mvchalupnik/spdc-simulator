@@ -105,8 +105,8 @@ def main():
         "momentum_span_wide_y": 0.065,
         "momentum_span_narrow_x": 0.001,
         "momentum_span_narrow_y": 0.001,
-        "num_samples_momentum_wide_x": 400, #800 for good result
-        "num_samples_momentum_wide_y": 400, #800 for good result
+        "num_samples_momentum_wide_x": 500, #800 for good result
+        "num_samples_momentum_wide_y": 500, #800 for good result
         "num_samples_momentum_narrow_x": 20, #50 for good result
         "num_samples_momentum_narrow_y": 20, #50 for good result
         "pump_waist_size": w0,
@@ -114,7 +114,7 @@ def main():
         "z_pos": z_pos,
         "crystal_length": crystal_length,
         "phase_matching_type": 1,
-        "simulation_cores": 4,
+        "simulation_cores": 1,
         "save_directory": dir_string,
     }
 

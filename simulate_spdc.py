@@ -38,17 +38,24 @@ def grid_integration_momentum(f, dqix, dqiy, dqx, dqy, num_samples_wide_x, num_s
     time1 = time.time()
 
     # Vectorized evaluation of the function f over the flattened grids
-    func_grid = f(qix_flat, qiy_flat, dqx_flat, dqy_flat)
-#    func_grid = Parallel(n_jobs=num_cores)(delayed(f)(qix_flat[i], qiy_flat[i], dqx_flat[i], dqy_flat[i]) for i in range(len(dqix_flat)))
+#    func_grid = f(qix_flat, qiy_flat, dqx_flat, dqy_flat)
+    qix_jobs = np.array_split(qix_flat, num_cores)
+    qiy_jobs = np.array_split(qiy_flat, num_cores)
+    dqx_jobs = np.array_split(dqx_flat, num_cores)
+    dqy_jobs = np.array_split(dqy_flat, num_cores)
+
+    result_grids = Parallel(n_jobs=num_cores)(delayed(f)(qix_jobs[i], qiy_jobs[i], dqx_jobs[i], dqy_jobs[i]) for i in range(num_cores))
+    result_grid = np.concatenate(result_grids)
+
 
     time2 = time.time()
 
     # Reshape grid
-    reshaped_func_grid = np.reshape(func_grid, [len(qix_array), len(qiy_array), len(dqx_array), len(dqy_array)])
+    reshaped_result_grid = np.reshape(result_grid, [len(qix_array), len(qiy_array), len(dqx_array), len(dqy_array)])
 
     # N-dimensional Fourier transform across all four axes
-    ft_func_grid = np.fft.fftn(reshaped_func_grid)
-    ft_func_grid_shifted = np.fft.fftshift(ft_func_grid)
+    ft_result_grid = np.fft.fftn(reshaped_result_grid)
+    ft_result_grid_shifted = np.fft.fftshift(ft_result_grid)
 
     # Return the absolute value of this grid squared
     time3 = time.time()
@@ -69,7 +76,7 @@ def grid_integration_momentum(f, dqix, dqiy, dqx, dqy, num_samples_wide_x, num_s
     dy_array = get_fourier_transformed_axis(q_increment=(2*dqy)/(2*np.pi*num_samples_narrow_y), num_points=num_samples_narrow_y)
 
     # Return the absolute value of the Fourier transformed grid squared, as well as the four new axes
-    return np.abs(ft_func_grid_shifted)**2, xi_array, yi_array, dx_array, dy_array
+    return np.abs(ft_result_grid_shifted)**2, xi_array, yi_array, dx_array, dy_array
 
 def n_o(wavelength):
     """
@@ -276,7 +283,7 @@ def calculate_conditional_probability(xi_pos, yi_pos, thetap, omegai, omegas, si
     momentum_span_narrow = simulation_parameters.get("momentum_span_narrow")
     num_samples_momentum_wide = simulation_parameters["num_samples_momentum_wide"]
     num_samples_momentum_narrow = simulation_parameters["num_samples_momentum_narrow"]
-    num_cores = simulation_parameters.get("num_cores")
+    num_cores = simulation_parameters.get("simulation_cores")
     phase_matching_type = simulation_parameters.get("phase_matching_type")
 
     dqix = (omegai / C) * momentum_span_wide
@@ -340,7 +347,7 @@ def calculate_rings(thetap, omegai, omegas, simulation_parameters):
     num_samples_momentum_narrow_x = simulation_parameters["num_samples_momentum_narrow_x"]
     num_samples_momentum_narrow_y = simulation_parameters["num_samples_momentum_narrow_y"]
 
-    num_cores = simulation_parameters.get("num_cores")
+    num_cores = simulation_parameters.get("simulation_cores") #get rid of .get
     phase_matching_type = simulation_parameters.get("phase_matching_type")
 
     dqix = (omegai / C) * momentum_span_wide_x
