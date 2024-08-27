@@ -54,10 +54,9 @@ def grid_integration_momentum(f, dqix, dqiy, dqx, dqy, num_samples_wide_x, num_s
 
     # Manually clean up large objects
     del result_grids
-    del qix_grid
-    del qiy_grid
-    del dqx_grid
-    del dqy_grid
+
+    del qix_grid, qiy_grid, dqx_grid, dqy_grid, qix_flat, qiy_flat, dqx_flat, dqy_flat, qix_jobs, qiy_jobs, dqx_jobs, dqy_jobs
+
 
 
     time2 = time.time()
@@ -66,13 +65,15 @@ def grid_integration_momentum(f, dqix, dqiy, dqx, dqy, num_samples_wide_x, num_s
     # Reshape grid
     reshaped_result_grid = np.reshape(result_grid, [len(qix_array), len(qiy_array), len(dqx_array), len(dqy_array)])
 
+    del result_grid
+
     # N-dimensional Fourier transform across all four axes
     ft_result_grid = np.fft.fftn(reshaped_result_grid)
+    del reshaped_result_grid
+
     ft_result_grid_shifted = np.fft.fftshift(ft_result_grid)
 
     # Manually clean up large objects
-    del result_grid
-    del reshaped_result_grid
     del ft_result_grid
 
     # Return the absolute value of this grid squared
@@ -348,7 +349,7 @@ def calculate_conditional_probability(xi_pos, yi_pos, thetap, omegai, omegas, si
     # Also could return signal probability
     # Also todo, return the actual points used
 
-
+@profile
 def calculate_rings(thetap, omegai, omegas, simulation_parameters):
     """
     Return the entangled pair generation rate at location (x, y, z) from the crystal. Equation 84.
@@ -400,7 +401,6 @@ def calculate_rings(thetap, omegai, omegas, simulation_parameters):
         raise ValueError(f"Unknown phase_matching_type {phase_matching_type}.")
 
     return result, xs, ys
-
 
 def simulate_ring_momentum(simulation_parameters):
     """
