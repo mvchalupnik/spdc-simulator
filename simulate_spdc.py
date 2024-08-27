@@ -7,7 +7,6 @@ import itertools
 import pickle
 import json
 from file_utils import get_current_time
-
 from memory_profiler import profile
 import gc
 
@@ -20,14 +19,14 @@ def grid_integration_momentum(f, dqix, dqiy, dqx, dqy, num_samples_wide_x, num_s
     """
     Integrate along momentum dimensions.
     """
-    qix_array = np.linspace(-dqix, dqix, num_samples_wide_x)
-    qiy_array = np.linspace(-dqiy, dqiy, num_samples_wide_y)
+    qix_array = np.linspace(-dqix, dqix, num_samples_wide_x, dtype=np.float32)
+    qiy_array = np.linspace(-dqiy, dqiy, num_samples_wide_y, dtype=np.float32)
 
     # From conservation of momentum, dqix should be close to -dqsx and dqiy should be close to -dqsy
     # so we can write dqix = -dqsx + dqx and dqiy = -dqsy + dqy 
     # and then can use fewer points of integration along the dqx, dqy dimensions.
-    dqx_array = np.linspace(-dqx, dqx, num_samples_narrow_x)
-    dqy_array = np.linspace(-dqy, dqy, num_samples_narrow_y)
+    dqx_array = np.linspace(-dqx, dqx, num_samples_narrow_x, dtype=np.float32)
+    dqy_array = np.linspace(-dqy, dqy, num_samples_narrow_y, dtype=np.float32)
 
     # Generate the coordinate grid using meshgrid
     qix_grid, qiy_grid, dqx_grid, dqy_grid = np.meshgrid(qix_array, qiy_array, dqx_array, dqy_array,
@@ -50,14 +49,13 @@ def grid_integration_momentum(f, dqix, dqiy, dqx, dqy, num_samples_wide_x, num_s
     dqy_jobs = np.array_split(dqy_flat, num_cores)
 
     result_grids = Parallel(n_jobs=num_cores)(delayed(f)(qix_jobs[i], qiy_jobs[i], dqx_jobs[i], dqy_jobs[i]) for i in range(num_cores))
-    result_grid = np.concatenate(result_grids)
 
     # Manually clean up large objects
-    del result_grids
-
     del qix_grid, qiy_grid, dqx_grid, dqy_grid, qix_flat, qiy_flat, dqx_flat, dqy_flat, qix_jobs, qiy_jobs, dqx_jobs, dqy_jobs
 
+    result_grid = np.concatenate(result_grids)
 
+    del result_grids
 
     time2 = time.time()
     print(time2-time1)
@@ -349,7 +347,6 @@ def calculate_conditional_probability(xi_pos, yi_pos, thetap, omegai, omegas, si
     # Also could return signal probability
     # Also todo, return the actual points used
 
-@profile
 def calculate_rings(thetap, omegai, omegas, simulation_parameters):
     """
     Return the entangled pair generation rate at location (x, y, z) from the crystal. Equation 84.
