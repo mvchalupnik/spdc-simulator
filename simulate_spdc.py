@@ -52,10 +52,9 @@ def grid_integration_momentum(f, dqix, dqiy, dqx, dqy, num_samples_wide_x, num_s
 
     # Manually clean up large objects
     del qix_grid, qiy_grid, dqx_grid, dqy_grid, qix_flat, qiy_flat, dqx_flat, dqy_flat, qix_jobs, qiy_jobs, dqx_jobs, dqy_jobs
+    gc.collect()
 
     result_grid = np.concatenate(result_grids)
-
-    del result_grids
 
     time2 = time.time()
     print(time2-time1)
@@ -63,16 +62,16 @@ def grid_integration_momentum(f, dqix, dqiy, dqx, dqy, num_samples_wide_x, num_s
     # Reshape grid
     reshaped_result_grid = np.reshape(result_grid, [len(qix_array), len(qiy_array), len(dqx_array), len(dqy_array)])
 
+    del result_grids
     del result_grid
+    gc.collect()
 
     # N-dimensional Fourier transform across all four axes
-    ft_result_grid = np.fft.fftn(reshaped_result_grid)
-    del reshaped_result_grid
-
-    ft_result_grid_shifted = np.fft.fftshift(ft_result_grid)
+    ft_result_grid_shifted = np.fft.fftshift(np.fft.fftn(reshaped_result_grid))
 
     # Manually clean up large objects
-    del ft_result_grid
+    del reshaped_result_grid
+    gc.collect()
 
     # Return the absolute value of this grid squared
     time3 = time.time()
@@ -81,9 +80,9 @@ def grid_integration_momentum(f, dqix, dqiy, dqx, dqy, num_samples_wide_x, num_s
     # Find the four Fourier transformed axes
     def get_fourier_transformed_axis(q_increment, num_points):
         if num_points % 2 == 0:
-            ft_axis = np.arange(-num_points/2, num_points/2-1)*1/(q_increment*num_points)
+            ft_axis = np.arange(-num_points/2, num_points/2-1, dtype=np.float32)*1/(q_increment*num_points)
         else:
-            ft_axis = np.arange(-(num_points-1)/2, (num_points-1)/2)*1/(q_increment*num_points)
+            ft_axis = np.arange(-(num_points-1)/2, (num_points-1)/2, dtype=np.float32)*1/(q_increment*num_points)
         return ft_axis
         #2pi factor? todo
     xi_array = get_fourier_transformed_axis(q_increment=(2*dqix)/(2*np.pi*num_samples_wide_x), num_points=num_samples_wide_x)
