@@ -26,7 +26,7 @@ def main():
     simulation_parameters = {
         "num_plot_qx_points": 500,
         "num_plot_qy_points": 500,
-        "thetap": thetap,
+        "thetap": 40.48 * np.pi / 180,
         "omegap": (2 * np.pi * C) / pump_wavelength,
         "omegai": (2 * np.pi * C) / down_conversion_wavelength,
         "omegas": (2 * np.pi * C) / down_conversion_wavelength,
@@ -48,7 +48,7 @@ def main():
     simulation_parameters = {
         "num_plot_qx_points": 500,
         "num_plot_qy_points": 500,
-        "thetap": 28.84 * np.pi / 180,
+        "thetap": 28.44 * np.pi / 180,
         "omegap": (2 * np.pi * C) / pump_wavelength,
         "omegai": (2 * np.pi * C) / down_conversion_wavelength,
         "omegas": (2 * np.pi * C) / down_conversion_wavelength,

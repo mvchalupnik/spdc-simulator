@@ -8,10 +8,13 @@ import pickle
 import json
 from file_utils import get_current_time
 
+from memory_profiler import profile
+import gc
+
 # Constants
 C = 2.99792e8  # Speed of light, in meters per second
 
-
+@profile
 def grid_integration_momentum(f, dqix, dqiy, dqx, dqy, num_samples_wide_x, num_samples_wide_y, num_samples_narrow_x,
                               num_samples_narrow_y, num_cores):
     """
@@ -38,7 +41,9 @@ def grid_integration_momentum(f, dqix, dqiy, dqx, dqy, num_samples_wide_x, num_s
     time1 = time.time()
 
     # Vectorized evaluation of the function f over the flattened grids
-#    func_grid = f(qix_flat, qiy_flat, dqx_flat, dqy_flat)
+#    result_grid = f(qix_flat, qiy_flat, dqx_flat, dqy_flat)
+
+    # Comment this out for debug
     qix_jobs = np.array_split(qix_flat, num_cores)
     qiy_jobs = np.array_split(qiy_flat, num_cores)
     dqx_jobs = np.array_split(dqx_flat, num_cores)
@@ -47,8 +52,16 @@ def grid_integration_momentum(f, dqix, dqiy, dqx, dqy, num_samples_wide_x, num_s
     result_grids = Parallel(n_jobs=num_cores)(delayed(f)(qix_jobs[i], qiy_jobs[i], dqx_jobs[i], dqy_jobs[i]) for i in range(num_cores))
     result_grid = np.concatenate(result_grids)
 
+    # Manually clean up large objects
+    del result_grids
+    del qix_grid
+    del qiy_grid
+    del dqx_grid
+    del dqy_grid
+
 
     time2 = time.time()
+    print(time2-time1)
 
     # Reshape grid
     reshaped_result_grid = np.reshape(result_grid, [len(qix_array), len(qiy_array), len(dqx_array), len(dqy_array)])
@@ -57,9 +70,13 @@ def grid_integration_momentum(f, dqix, dqiy, dqx, dqy, num_samples_wide_x, num_s
     ft_result_grid = np.fft.fftn(reshaped_result_grid)
     ft_result_grid_shifted = np.fft.fftshift(ft_result_grid)
 
+    # Manually clean up large objects
+    del result_grid
+    del reshaped_result_grid
+    del ft_result_grid
+
     # Return the absolute value of this grid squared
     time3 = time.time()
-    print(time2-time1)
     print(time3-time2)
 
     # Find the four Fourier transformed axes
@@ -75,8 +92,12 @@ def grid_integration_momentum(f, dqix, dqiy, dqx, dqy, num_samples_wide_x, num_s
     dx_array = get_fourier_transformed_axis(q_increment=(2*dqx)/(2*np.pi*num_samples_narrow_x), num_points=num_samples_narrow_x)
     dy_array = get_fourier_transformed_axis(q_increment=(2*dqy)/(2*np.pi*num_samples_narrow_y), num_points=num_samples_narrow_y)
 
+    result_squared = np.abs(ft_result_grid_shifted)**2
+    del ft_result_grid_shifted
+    gc.collect()
+
     # Return the absolute value of the Fourier transformed grid squared, as well as the four new axes
-    return np.abs(ft_result_grid_shifted)**2, xi_array, yi_array, dx_array, dy_array
+    return result_squared, xi_array, yi_array, dx_array, dy_array
 
 def n_o(wavelength):
     """
