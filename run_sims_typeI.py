@@ -3,6 +3,7 @@ from simulate_spdc import simulate_rings, C
 from file_utils import create_directory
 import numpy as np
 
+
 def run_sims_type_I():
     """
     Run simulations to reproduce the simulated type I down-converted photon intensity in
@@ -34,11 +35,13 @@ def run_sims_type_I():
     """
     dir_string = create_directory(data_directory_path="plots")
 
-    pump_wavelength = 405e-9 # Pump wavelength in meters
-    down_conversion_wavelength = 810e-9 # Wavelength of down-converted photons in meters
-    w0 = 388e-6 # beam waist in meters, page 8
-    d = 107.8e-2 # pg 15
-    z_pos = 35e-3 # 35 millimeters, page 15
+    pump_wavelength = 405e-9  # Pump wavelength in meters
+    down_conversion_wavelength = (
+        810e-9  # Wavelength of down-converted photons in meters
+    )
+    w0 = 388e-6  # beam waist in meters, page 8
+    d = 107.8e-2  # pg 15
+    z_pos = 35e-3  # 35 millimeters, page 15
     crystal_length = 0.002  # Length of the nonlinear crystal in meters
 
     ################ SIMULATE RINGS
@@ -112,5 +115,5 @@ def run_sims_type_I():
     simulate_rings(simulation_parameters=simulation_parameters)
 
 
-if __name__=="__main__": 
+if __name__ == "__main__":
     run_sims_type_I()

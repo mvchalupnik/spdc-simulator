@@ -10,12 +10,7 @@ Extras
 - Visibility? (walkoff)
 
 Coding style
-- Don't pass omegap where unnecessary
-- Kwargs instead of dict
 - Remove unnecessary imports and other cleaning
-- Enums and other reduction of duplicate code
-- TODOs
-- num_jobs instead of num_cores
 - Type hints
 - autoformat?/lint?
 
