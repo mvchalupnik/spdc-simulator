@@ -8,10 +8,10 @@ import pickle
 import json
 from file_utils import get_current_time
 import gc
-from enum import Enum
+from enum import Enum, auto
 
 # Constants
-C = 2.99792e8  # Speed of light, in meters per second
+C = 2.99792e8  # Speed of light, in meters per second.
 
 # Create an Enum for the phase-matching type.
 class PhaseMatchingCase(Enum):
@@ -19,18 +19,17 @@ class PhaseMatchingCase(Enum):
     TYPE_TWO_SIGNAL = auto()
     TYPE_TWO_IDLER = auto()
 
-def grid_integration_momentum(f, dqix, dqiy, dqx, dqy, num_samples_wide_x, num_samples_wide_y, num_samples_narrow_x,
+def grid_integration_momentum(f, qx, qy, dqx, dqy, num_samples_wide_x, num_samples_wide_y, num_samples_narrow_x,
                               num_samples_narrow_y, num_jobs):
     """
-    Integrate a function f along four dimensions of momentum: qix (k-vector along x) of idler, qiy 
-    (k-vector along y) of idler, dqx = qix + qsx, and dqy = qiy + qsy. Integrating this function
-    will provide the count rate for entangled photon pairs from a bulk BBO crystal at a given coordinate in real space.
-
-    dqx = qix. (TODO math) (TODO rename dqix, dqiy?)
+    Integrate a function f (equation 82-84) along four dimensions of momentum: qx (k-vector along x) of idler (signal),
+    qy (k-vector along y) of idler (signal), dqx = qix + qsx, and dqy = qiy + qsy. A 4-D Fourier transform is used
+    to simplify the integration. Integrating this function will provide the count rate for
+    entangled photon pairs from a bulk BBO crystal at a given coordinate in real space.
 
     :param f: The function to integrate over.
-    :param dqix: One half of the interval of k-vector along x for the idler, to integrate over.
-    :param dqiy: One half of the interval of k-vector along y for the idler, to integrate over.
+    :param qx: One half of the interval of k-vector along x for the idler (signal), to integrate over.
+    :param qy: One half of the interval of k-vector along y for the idler (signal), to integrate over.
     :param dqx: One half of the interval of the difference in k-vectors along x for the signal and idler,
         (qsx = -qix + dx).
     :param dqy: One half of the interval of the difference in k-vectors along y for the signal and idler,
@@ -41,8 +40,8 @@ def grid_integration_momentum(f, dqix, dqiy, dqx, dqy, num_samples_wide_x, num_s
     :param num_samples_narrow_y: The number of samples to integrate over along y for the [-dqy, dqy] interval.
     :param num_jobs: The number of jobs to parallelize the batched function evaluation over.
     """
-    qix_array = np.linspace(-dqix, dqix, num_samples_wide_x, dtype=np.float32)
-    qiy_array = np.linspace(-dqiy, dqiy, num_samples_wide_y, dtype=np.float32)
+    qx_array = np.linspace(-qx, qx, num_samples_wide_x, dtype=np.float32)
+    qy_array = np.linspace(-qy, qy, num_samples_wide_y, dtype=np.float32)
 
     # dqix should be close to -dqsx and dqiy should be close to -dqsy
     # so we can write dqix = -dqsx + dqx and dqiy = -dqsy + dqy 
@@ -51,34 +50,34 @@ def grid_integration_momentum(f, dqix, dqiy, dqx, dqy, num_samples_wide_x, num_s
     dqy_array = np.linspace(-dqy, dqy, num_samples_narrow_y, dtype=np.float32)
 
     # Generate the coordinate grid using meshgrid
-    qix_grid, qiy_grid, dqx_grid, dqy_grid = np.meshgrid(qix_array, qiy_array, dqx_array, dqy_array,
+    qx_grid, qy_grid, dqx_grid, dqy_grid = np.meshgrid(qx_array, qy_array, dqx_array, dqy_array,
                                                            indexing='ij')
 
     # Flatten the grids
-    qix_flat = qix_grid.ravel()
-    qiy_flat = qiy_grid.ravel()
+    qx_flat = qx_grid.ravel()
+    qy_flat = qy_grid.ravel()
     dqx_flat = dqx_grid.ravel()
     dqy_flat = dqy_grid.ravel()
     time1 = time.time()
 
-    qix_jobs = np.array_split(qix_flat, num_jobs)
-    qiy_jobs = np.array_split(qiy_flat, num_jobs)
+    qx_jobs = np.array_split(qx_flat, num_jobs)
+    qy_jobs = np.array_split(qy_flat, num_jobs)
     dqx_jobs = np.array_split(dqx_flat, num_jobs)
     dqy_jobs = np.array_split(dqy_flat, num_jobs)
 
-    result_grids = Parallel(n_jobs=num_jobs)(delayed(f)(qix_jobs[i], qiy_jobs[i], dqx_jobs[i], dqy_jobs[i]) for i in range(num_jobs))
+    result_grids = Parallel(n_jobs=num_jobs)(delayed(f)(qx_jobs[i], qy_jobs[i], dqx_jobs[i], dqy_jobs[i]) for i in range(num_jobs))
 
     # Manually clean up large objects
-    del qix_grid, qiy_grid, dqx_grid, dqy_grid, qix_flat, qiy_flat, dqx_flat, dqy_flat, qix_jobs, qiy_jobs, dqx_jobs, dqy_jobs
+    del qx_grid, qy_grid, dqx_grid, dqy_grid, qx_flat, qy_flat, dqx_flat, dqy_flat, qx_jobs, qy_jobs, dqx_jobs, dqy_jobs
     gc.collect()
 
     result_grid = np.concatenate(result_grids)
 
     time2 = time.time()
-    print(time2-time1)
+    print(f"Seconds for integration, part 1: {time2-time1}")
 
     # Reshape grid
-    reshaped_result_grid = np.reshape(result_grid, [len(qix_array), len(qiy_array), len(dqx_array), len(dqy_array)])
+    reshaped_result_grid = np.reshape(result_grid, [len(qx_array), len(qy_array), len(dqx_array), len(dqy_array)])
 
     del result_grids
     del result_grid
@@ -93,7 +92,7 @@ def grid_integration_momentum(f, dqix, dqiy, dqx, dqy, num_samples_wide_x, num_s
 
     # Return the absolute value of this grid squared
     time3 = time.time()
-    print(time3-time2)
+    print(f"Seconds for integration, part 2: {time3-time2}")
 
     # Find the four Fourier transformed axes
     def get_fourier_transformed_axis(q_increment, num_points):
@@ -103,8 +102,8 @@ def grid_integration_momentum(f, dqix, dqiy, dqx, dqy, num_samples_wide_x, num_s
             ft_axis = np.arange(-(num_points-1)/2, (num_points-1)/2, dtype=np.float32)*1/(q_increment*num_points)
         return ft_axis
 
-    xi_array = get_fourier_transformed_axis(q_increment=(2*dqix)/(2*np.pi*num_samples_wide_x), num_points=num_samples_wide_x)
-    yi_array = get_fourier_transformed_axis(q_increment=(2*dqiy)/(2*np.pi*num_samples_wide_y), num_points=num_samples_wide_y)
+    x_array = get_fourier_transformed_axis(q_increment=(2*qx)/(2*np.pi*num_samples_wide_x), num_points=num_samples_wide_x)
+    y_array = get_fourier_transformed_axis(q_increment=(2*qy)/(2*np.pi*num_samples_wide_y), num_points=num_samples_wide_y)
     dx_array = get_fourier_transformed_axis(q_increment=(2*dqx)/(2*np.pi*num_samples_narrow_x), num_points=num_samples_narrow_x)
     dy_array = get_fourier_transformed_axis(q_increment=(2*dqy)/(2*np.pi*num_samples_narrow_y), num_points=num_samples_narrow_y)
 
@@ -112,7 +111,7 @@ def grid_integration_momentum(f, dqix, dqiy, dqx, dqy, num_samples_wide_x, num_s
     del ft_result_grid_shifted
 
     # Return the absolute value of the Fourier transformed grid squared, as well as the four new axes
-    return squared_result, xi_array, yi_array, dx_array, dy_array
+    return squared_result, x_array, y_array, dx_array, dy_array
 
 def n_o(wavelength):
     """
@@ -231,8 +230,8 @@ def delta_k_type_2(q1x, q2x, q1y, q2y, thetap, omegap, omega1, omega2):
     lambda2 = (2 * np.pi * C) / omega2
     lambdap = (2 * np.pi * C) / omegap
 
-    qpx = q1x + q2x # Conservation of momentum # Pass in qpx, todo?
-    qpy = q1y + q2y # Conservation of momentum
+    qpx = q1x + q2x # Estimate qpx from conservation of momentum
+    qpy = q1y + q2y # Estimate qpy from conservation of momentum
     q1_abs = np.sqrt(q1x**2 + q1y**2)
     q2_abs = np.sqrt(q2x**2 + q2y**2)
 
@@ -277,10 +276,6 @@ def get_rate_integrand(thetap, omegai, omegas, z_pos, w0, d, crystal_length, pha
     ki = omegai / C
     kpz = (omegas + omegai) / C # This is on page 8 in the bottom paragraph on the left column
     omegap = omegas + omegai # This is on page 8 in the bottom paragraph on the left column
-    z_pos = simulation_parameters["z_pos"]
-    w0 = simulation_parameters["pump_waist_size"]
-    d = simulation_parameters["pump_waist_distance"]
-    crystal_length = simulation_parameters["crystal_length"]
 
     def rate_integrand(qix, qiy, delta_qx, delta_qy):
         qsx = -qix + delta_qx
@@ -317,6 +312,7 @@ def calculate_rings(thetap, omegai, omegas, momentum_span_wide_x, momentum_span_
                     momentum_span_narrow_x, momentum_span_narrow_y,
                     num_samples_momentum_wide_x, num_samples_momentum_wide_y,
                     num_samples_momentum_narrow_x, num_samples_momentum_narrow_y,
+                    z_pos, pump_waist_size, pump_waist_distance, crystal_length,
                     num_jobs, phase_matching_type):
     """
     Return the entangled pair generation rate at location (x, y, z) from the crystal. Equation 84.
@@ -332,28 +328,31 @@ def calculate_rings(thetap, omegai, omegas, momentum_span_wide_x, momentum_span_
     :param num_samples_momentum_wide_y: The number of samples to integrate over along y for the momentum_span_wide_y interval.
     :param num_samples_momentum_narrow_x: The number of samples to integrate over along y for the momentum_span_narrow_x interval.
     :param num_samples_momentum_narrow_y: The number of samples to integrate over along y for the momentum_span_narrow_y interval.
+    :param z_pos: The view location in the z direction, from crystal (meters).
+    :param pump_waist_size: Size of pump beam waist (meter).
+    :param pump_waist_distance: Distance of pump waist from crystal (meters).
+    :param crystal_length: The length of the crystal (meters).
     :param num_jobs: The number of jobs to parallelize the batched function evaluation over.
     :param phase_matching_type: The type of phase-matching (type I or type II).
     """
 
-    dqix = (omegai / C) * momentum_span_wide_x
-    dqiy = (omegai / C) * momentum_span_wide_y
+    qx = (omegai / C) * momentum_span_wide_x
+    qy = (omegai / C) * momentum_span_wide_y
     dqx = (omegas / C) * momentum_span_narrow_x
     dqy = (omegas / C) * momentum_span_narrow_y
 
     def get_integral_grid(phase_matching_case):
-        rate_integrand = get_rate_integrand(thetap, omegai, omegas, simulation_parameters, phase_matching_case)
-        # TODO make more general, not wrt i, s
-        result_grid, xis, yis, dxs, dys = grid_integration_momentum(f=rate_integrand, dqix=dqix, dqiy=dqiy, dqx=dqx, dqy=dqy,
+        rate_integrand = get_rate_integrand(thetap, omegai, omegas, z_pos, pump_waist_size, pump_waist_distance, crystal_length, phase_matching_case)
+        result_grid, xs, ys, dxs, dys = grid_integration_momentum(f=rate_integrand, qx=qx, qy=qy, dqx=dqx, dqy=dqy,
                                                 num_samples_wide_x=num_samples_momentum_wide_x,
                                                 num_samples_wide_y=num_samples_momentum_wide_y,
                                                 num_samples_narrow_x=num_samples_momentum_narrow_x, 
                                                 num_samples_narrow_y=num_samples_momentum_narrow_y, 
                                                 num_jobs=num_jobs)
 
-        # Sum result over two dimensions (integrate) TODO multiply by volume also
-        result_grid_sum_over_dx = np.sum(result_grid, axis=3)
-        return np.sum(result_grid_sum_over_dx, axis=2), xis, yis
+        # Sum result over two dimensions (integrate)
+        result_grid_sum_over_dx = np.sum(result_grid, axis=3) * (2 * dqy)
+        return np.sum(result_grid_sum_over_dx, axis=2)* (2 * dqx), xs, ys
 
     if phase_matching_type == 1:
         result, xs, ys = get_integral_grid(phase_matching_case=PhaseMatchingCase.TYPE_ONE)
@@ -388,6 +387,9 @@ def simulate_ring_momentum(simulation_parameters):
     idler_x_pos = simulation_parameters["idler_x_pos"]
     idler_y_pos = simulation_parameters["idler_y_pos"]
     z_pos = simulation_parameters["z_pos"]
+    w0 = simulation_parameters["pump_waist_size"]
+    d = simulation_parameters["pump_waist_distance"]
+    crystal_length = simulation_parameters["crystal_length"]
  
     save_directory = simulation_parameters["save_directory"]
 
@@ -401,12 +403,12 @@ def simulate_ring_momentum(simulation_parameters):
     X, Y = np.meshgrid(x, y)
 
     if phase_matching_type == 1:
-        rate_integrand = get_rate_integrand(thetap, omegai, omegas, simulation_parameters, PhaseMatchingCase.TYPE_ONE)
+        rate_integrand = get_rate_integrand(thetap, omegai, omegas, z_pos, w0, d, crystal_length, PhaseMatchingCase.TYPE_ONE)
         Z1 = rate_integrand(X, Y, 2*X, 2*Y)
         Z2 = rate_integrand(X, Y, 0, 0)
     elif phase_matching_type == 2:
-        rate_integrand_2s = get_rate_integrand(thetap, omegai, omegas, simulation_parameters, PhaseMatchingCase.TYPE_TWO_SIGNAL)
-        rate_integrand_2i = get_rate_integrand(thetap, omegai, omegas, simulation_parameters, PhaseMatchingCase.TYPE_TWO_IDLER)
+        rate_integrand_2s = get_rate_integrand(thetap, omegai, omegas, z_pos, w0, d, crystal_length, PhaseMatchingCase.TYPE_TWO_SIGNAL)
+        rate_integrand_2i = get_rate_integrand(thetap, omegai, omegas, z_pos, w0, d, crystal_length, PhaseMatchingCase.TYPE_TWO_IDLER)
         Z1 = rate_integrand_2s(X, Y, 2*X, 2*Y) + rate_integrand_2i(X, Y, 2*X, 2*Y)
         Z2 = rate_integrand_2s(X, Y, 0, 0) + rate_integrand_2i(X, Y, 0, 0)
     else:
@@ -480,6 +482,14 @@ def simulate_rings(simulation_parameters):
     omegap = simulation_parameters["omegap"] # Pump frequency (Radians / sec)
     omegai = simulation_parameters["omegai"] # Idler frequency (Radians / sec)
     omegas = simulation_parameters["omegas"] # Signal frequency (Radians / sec)
+    momentum_span_wide_x = simulation_parameters["momentum_span_wide_x"]
+    momentum_span_wide_y = simulation_parameters["momentum_span_wide_y"]
+    momentum_span_narrow_x = simulation_parameters["momentum_span_narrow_x"]
+    momentum_span_narrow_y = simulation_parameters["momentum_span_narrow_y"]
+    num_samples_momentum_wide_x = simulation_parameters["num_samples_momentum_wide_x"]
+    num_samples_momentum_wide_y = simulation_parameters["num_samples_momentum_wide_y"]
+    num_samples_momentum_narrow_x = simulation_parameters["num_samples_momentum_narrow_x"]
+    num_samples_momentum_narrow_y = simulation_parameters["num_samples_momentum_narrow_y"]
     pump_waist_size = simulation_parameters["pump_waist_size"] # Size of pump beam waist
     pump_waist_distance = simulation_parameters["pump_waist_distance"] # Distance of pump waist from crystal (meters)
     z_pos = simulation_parameters["z_pos"] # View location in the z direction, from crystal (meters)
@@ -491,7 +501,18 @@ def simulate_rings(simulation_parameters):
 
     # Run calculate_pair_generation_rate in parallel
     Z1, xis, yis = calculate_rings(thetap=thetap, omegai=omegai, omegas=omegas,
-                                   simulation_parameters=simulation_parameters)
+                    momentum_span_wide_x=momentum_span_wide_x,
+                    momentum_span_wide_y=momentum_span_wide_y,
+                    momentum_span_narrow_x=momentum_span_narrow_x,
+                    momentum_span_narrow_y=momentum_span_narrow_y,
+                    num_samples_momentum_wide_x=num_samples_momentum_wide_x,
+                    num_samples_momentum_wide_y=num_samples_momentum_wide_y,
+                    num_samples_momentum_narrow_x=num_samples_momentum_narrow_x,
+                    num_samples_momentum_narrow_y=num_samples_momentum_narrow_y,
+                    z_pos=z_pos, pump_waist_size=pump_waist_size, pump_waist_distance=pump_waist_distance,
+                    crystal_length=crystal_length,
+                    num_jobs=num_jobs, phase_matching_type=phase_matching_type)
+
 
     end_time = time.time()
     print(f"Elapsed time: {end_time - start_time}")

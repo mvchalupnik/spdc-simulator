@@ -1,4 +1,4 @@
-from simulate_spdc import simulate_rings, simulate_ring_momentum, simulate_conditional_probability, C
+from simulate_spdc import simulate_rings, C
 
 from file_utils import create_directory
 import numpy as np
