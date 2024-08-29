@@ -9,8 +9,8 @@ def run_momentum_sims():
     Run simulations to simulate the momentum of type I and type II down-converted photons from a BBO crystal.
 
     Parameters for parameter dict:
-    :param num_plot_qx_points: 
-    :param num_plot_qy_points:
+    :param num_plot_qx_points: The number of points to plot along x in momentum space.
+    :param num_plot_qy_points: The number of points to plot along y in momentum space.
     :param thetap: Angle theta in Radians along which pump photon enters BBO crystal (about y-axis).
     :param omegai: Angular frequency of the idler.
     :param omegas: Angular frequency of the signal.
@@ -29,7 +29,6 @@ def run_momentum_sims():
     """
     dir_string = create_directory(data_directory_path="plots")
 
-    pump_wavelength = 405e-9  # Pump wavelength in meters
     down_conversion_wavelength = (
         810e-9  # Wavelength of down-converted photons in meters
     )

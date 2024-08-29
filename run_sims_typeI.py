@@ -21,10 +21,14 @@ def run_sims_type_I():
         (by fraction of maximum k-vector) for the signal and idler.
     :param momentum_span_narrow_y: One half of the interval of the difference in k-vectors along y
         (by fraction of maximum k-vector) for the signal and idler.
-    :param num_samples_momentum_wide_x:The number of samples to integrate over along x for the momentum_span_wide_x interval.
-    :param num_samples_momentum_wide_y: The number of samples to integrate over along y for the momentum_span_wide_y interval.
-    :param num_samples_momentum_narrow_x: The number of samples to integrate over along y for the momentum_span_narrow_x interval.
-    :param num_samples_momentum_narrow_y: The number of samples to integrate over along y for the momentum_span_narrow_y interval.
+    :param num_samples_momentum_wide_x:The number of samples to integrate over along x for the
+        momentum_span_wide_x interval.
+    :param num_samples_momentum_wide_y: The number of samples to integrate over along y for the
+        momentum_span_wide_y interval.
+    :param num_samples_momentum_narrow_x: The number of samples to integrate over along y for the
+        momentum_span_narrow_x interval.
+    :param num_samples_momentum_narrow_y: The number of samples to integrate over along y for the
+        momentum_span_narrow_y interval.
     :param pump_waist_size: Size of pump beam waist (meter).
     :param pump_waist_distance: Distance of pump waist from crystal (meters).
     :param z_pos: The view location in the z direction, from crystal (meters).
@@ -35,7 +39,6 @@ def run_sims_type_I():
     """
     dir_string = create_directory(data_directory_path="plots")
 
-    pump_wavelength = 405e-9  # Pump wavelength in meters
     down_conversion_wavelength = (
         810e-9  # Wavelength of down-converted photons in meters
     )
