@@ -8,9 +8,29 @@ def run_sims_type_I():
     Run simulations to reproduce the simulated type I down-converted photon intensity in
     Figure 8 from Suman Karan et al 2020 J. Opt. 22 083501.
 
-    Parameters: TODO
-    z is the distance away from the crystal along pump propagation direction.
-
+    Parameters for parameter dict:
+    :param thetap: Angle theta in Radians along which pump photon enters BBO crystal (about y-axis).
+    :param omegai: Angular frequency of the idler.
+    :param omegas: Angular frequency of the signal.
+    :param momentum_span_wide_x: One half of the interval of k-vector (by fraction of maximum k-vector)
+        along x for the idler, to integrate over.
+    :param momentum_span_wide_y: One half of the interval of k-vector (by fraction of maximum k-vector)
+        along y for the idler, to integrate over.
+    :param momentum_span_narrow_x: One half of the interval of the difference in k-vectors along x
+        (by fraction of maximum k-vector) for the signal and idler.
+    :param momentum_span_narrow_y: One half of the interval of the difference in k-vectors along y
+        (by fraction of maximum k-vector) for the signal and idler.
+    :param num_samples_momentum_wide_x:The number of samples to integrate over along x for the momentum_span_wide_x interval.
+    :param num_samples_momentum_wide_y: The number of samples to integrate over along y for the momentum_span_wide_y interval.
+    :param num_samples_momentum_narrow_x: The number of samples to integrate over along y for the momentum_span_narrow_x interval.
+    :param num_samples_momentum_narrow_y: The number of samples to integrate over along y for the momentum_span_narrow_y interval.
+    :param pump_waist_size: Size of pump beam waist (meter).
+    :param pump_waist_distance: Distance of pump waist from crystal (meters).
+    :param z_pos: The view location in the z direction, from crystal (meters).
+    :param crystal_length: The length of the crystal (meters).
+    :param phase_matching_type: The type of phase-matching (type I or type II).
+    :param num_jobs: The number of jobs to parallelize the batched function evaluation over.
+    :param save_directory: The name of the directory to store plots in.
     """
     dir_string = create_directory(data_directory_path="plots")
 
@@ -21,11 +41,9 @@ def run_sims_type_I():
     z_pos = 35e-3 # 35 millimeters, page 15
     crystal_length = 0.002  # Length of the nonlinear crystal in meters
 
-
     ################ SIMULATE RINGS
     simulation_parameters = {
         "thetap": 28.64 * np.pi / 180,
-        "omegap": (2 * np.pi * C) / pump_wavelength,
         "omegai": (2 * np.pi * C) / down_conversion_wavelength,
         "omegas": (2 * np.pi * C) / down_conversion_wavelength,
         "momentum_span_wide_x": 0.045,
@@ -49,7 +67,6 @@ def run_sims_type_I():
 
     simulation_parameters = {
         "thetap": 28.74 * np.pi / 180,
-        "omegap": (2 * np.pi * C) / pump_wavelength,
         "omegai": (2 * np.pi * C) / down_conversion_wavelength,
         "omegas": (2 * np.pi * C) / down_conversion_wavelength,
         "momentum_span_wide_x": 0.045,
@@ -73,7 +90,6 @@ def run_sims_type_I():
 
     simulation_parameters = {
         "thetap": 28.95 * np.pi / 180,
-        "omegap": (2 * np.pi * C) / pump_wavelength,
         "omegai": (2 * np.pi * C) / down_conversion_wavelength,
         "omegas": (2 * np.pi * C) / down_conversion_wavelength,
         "momentum_span_wide_x": 0.045,

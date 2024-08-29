@@ -185,7 +185,7 @@ def eta(thetap, lambd):
     np.sqrt((n_o(lambd)**2 * np.sin(thetap)**2 + n_e(lambd)**2 * np.cos(thetap)**2))
     return eta
 
-def delta_k_type_1(qsx, qix, qsy, qiy, thetap, omegap, omegas, omegai):
+def delta_k_type_1(qsx, qix, qsy, qiy, thetap, omegas, omegai):
     """
     Return delta_k for type I phase matching, for BBO crystal.
     
@@ -194,10 +194,11 @@ def delta_k_type_1(qsx, qix, qsy, qiy, thetap, omegap, omegas, omegai):
     :param qsy: k-vector in the y direction for signal.
     :param qiy: k-vector in the y direction for idler.
     :param thetap: Angle theta in Radians along which pump photon enters BBO crystal (about y-axis).
-    :param omegap: Angular frequency of the pump photon.
     :param omegas: Angular frequency of the signal photon.
     :param omegai: Angular frequency of the idler photon.
     """
+    omegap = omegas + omegai
+
     lambdas = (2 * np.pi * C) / omegas
     lambdai = (2 * np.pi * C) / omegai
     lambdap = (2 * np.pi * C) / omegap
@@ -214,7 +215,7 @@ def delta_k_type_1(qsx, qix, qsy, qiy, thetap, omegap, omegas, omegai):
 
     return delta_k
 
-def delta_k_type_2(q1x, q2x, q1y, q2y, thetap, omegap, omega1, omega2):
+def delta_k_type_2(q1x, q2x, q1y, q2y, thetap, omega1, omega2):
     """ Return delta_k for type II, case 1 phase matching, for BBO crystal.
     
     :param q1x: k-vector in the x direction for signal (idler).
@@ -222,10 +223,11 @@ def delta_k_type_2(q1x, q2x, q1y, q2y, thetap, omegap, omega1, omega2):
     :param q1y: k-vector in the y direction for signal (idler).
     :param q2y: k-vector in the y direction for idler (signal).
     :param thetap: Angle theta in Radians along which pump photon enters the BBO crystal (about y-axis).
-    :param omegap: Angular frequency of the pump photon.
     :param omega1: Angular frequency of the signal (idler) photon.
     :param omega2: Angular frequency of the idler (signal) photon.
     """
+    omegap = omega1 + omega2
+
     lambda1 = (2 * np.pi * C) / omega1
     lambda2 = (2 * np.pi * C) / omega2
     lambdap = (2 * np.pi * C) / omegap
@@ -272,10 +274,11 @@ def get_rate_integrand(thetap, omegai, omegas, z_pos, w0, d, crystal_length, pha
     :param crystal_length: The length of the crystal (meters).
     :param phase_matching_case: The phase-matching case: type I, type II idler or type II signal.
     """
+    omegap = omegai + omegas
+
     ks = omegas / C
     ki = omegai / C
     kpz = (omegas + omegai) / C # This is on page 8 in the bottom paragraph on the left column
-    omegap = omegas + omegai # This is on page 8 in the bottom paragraph on the left column
 
     def rate_integrand(qix, qiy, delta_qx, delta_qy):
         qsx = -qix + delta_qx
@@ -287,13 +290,13 @@ def get_rate_integrand(thetap, omegai, omegas, z_pos, w0, d, crystal_length, pha
         # Calculate delta_k based on the type of phase-matching
         if phase_matching_case == PhaseMatchingCase.TYPE_ONE:
             delta_k_term = delta_k_type_1(qsx=qsx, qix=qix, qsy=qsy, qiy=qiy, thetap=thetap,
-                                          omegap=omegap, omegai=omegai, omegas=omegas)
+                                          omegai=omegai, omegas=omegas)
         elif phase_matching_case == PhaseMatchingCase.TYPE_TWO_SIGNAL:
             delta_k_term = delta_k_type_2(q1x=qsx, q2x=qix, q1y=qsy, q2y=qiy, thetap=thetap,
-                                          omegap=omegap, omega1=omegas, omega2=omegai)
+                                          omega1=omegas, omega2=omegai)
         elif phase_matching_case == PhaseMatchingCase.TYPE_TWO_IDLER:
             delta_k_term = delta_k_type_2(q1x=qix, q2x=qsx, q1y=qiy, q2y=qsy, thetap=thetap,
-                                          omegap=omegap, omega1=omegai, omega2=omegas)
+                                          omega1=omegai, omega2=omegas)
         else:
             raise TypeError(f"Error, unknown phase matching case {phase_matching_case}.")
 
@@ -375,7 +378,6 @@ def simulate_ring_momentum(simulation_parameters):
     num_plot_qy_points = simulation_parameters["num_plot_qy_points"]
 
     thetap = simulation_parameters["thetap"] # Incident pump angle, in Radians
-    omegap = simulation_parameters["omegap"] # Pump frequency (Radians / sec)
     omegai = simulation_parameters["omegai"] # Idler frequency (Radians / sec)
     omegas = simulation_parameters["omegas"] # Signal frequency (Radians / sec)
     phase_matching_type = simulation_parameters["phase_matching_type"] # Type I or Type II phase-matching
@@ -479,7 +481,6 @@ def simulate_rings(simulation_parameters):
     start_time = time.time()
 
     thetap = simulation_parameters["thetap"] # Incident pump angle, in Radians
-    omegap = simulation_parameters["omegap"] # Pump frequency (Radians / sec)
     omegai = simulation_parameters["omegai"] # Idler frequency (Radians / sec)
     omegas = simulation_parameters["omegas"] # Signal frequency (Radians / sec)
     momentum_span_wide_x = simulation_parameters["momentum_span_wide_x"]
