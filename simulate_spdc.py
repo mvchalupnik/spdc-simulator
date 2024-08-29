@@ -7,22 +7,44 @@ import itertools
 import pickle
 import json
 from file_utils import get_current_time
-from memory_profiler import profile
 import gc
+from enum import Enum
 
 # Constants
 C = 2.99792e8  # Speed of light, in meters per second
 
-@profile
+# Create an Enum for the phase-matching type.
+class PhaseMatchingCase(Enum):
+    TYPE_ONE = 0
+    TYPE_TWO_SIGNAL = auto()
+    TYPE_TWO_IDLER = auto()
+
 def grid_integration_momentum(f, dqix, dqiy, dqx, dqy, num_samples_wide_x, num_samples_wide_y, num_samples_narrow_x,
-                              num_samples_narrow_y, num_cores):
+                              num_samples_narrow_y, num_jobs):
     """
-    Integrate along momentum dimensions.
+    Integrate a function f along four dimensions of momentum: qix (k-vector along x) of idler, qiy 
+    (k-vector along y) of idler, dqx = qix + qsx, and dqy = qiy + qsy. Integrating this function
+    will provide the count rate for entangled photon pairs from a bulk BBO crystal at a given coordinate in real space.
+
+    dqx = qix. (TODO math) (TODO rename dqix, dqiy?)
+
+    :param f: The function to integrate over.
+    :param dqix: One half of the interval of k-vector along x for the idler, to integrate over.
+    :param dqiy: One half of the interval of k-vector along y for the idler, to integrate over.
+    :param dqx: One half of the interval of the difference in k-vectors along x for the signal and idler,
+        (qsx = -qix + dx).
+    :param dqy: One half of the interval of the difference in k-vectors along y for the signal and idler,
+        (qsy = -qiy + dy).
+    :param num_samples_wide_x: The number of samples to integrate over along x for the [-dqix, dqix] interval.
+    :param num_samples_wide_y: The number of samples to integrate over along y for the [-dqiy, dqiy] interval.
+    :param num_samples_narrow_x: The number of samples to integrate over along y for the [-dqx, dqx] interval.
+    :param num_samples_narrow_y: The number of samples to integrate over along y for the [-dqy, dqy] interval.
+    :param num_jobs: The number of jobs to parallelize the batched function evaluation over.
     """
     qix_array = np.linspace(-dqix, dqix, num_samples_wide_x, dtype=np.float32)
     qiy_array = np.linspace(-dqiy, dqiy, num_samples_wide_y, dtype=np.float32)
 
-    # From conservation of momentum, dqix should be close to -dqsx and dqiy should be close to -dqsy
+    # dqix should be close to -dqsx and dqiy should be close to -dqsy
     # so we can write dqix = -dqsx + dqx and dqiy = -dqsy + dqy 
     # and then can use fewer points of integration along the dqx, dqy dimensions.
     dqx_array = np.linspace(-dqx, dqx, num_samples_narrow_x, dtype=np.float32)
@@ -39,17 +61,12 @@ def grid_integration_momentum(f, dqix, dqiy, dqx, dqy, num_samples_wide_x, num_s
     dqy_flat = dqy_grid.ravel()
     time1 = time.time()
 
-    # Vectorized evaluation of the function f over the flattened grids
-#    result_grid = f(qix_flat, qiy_flat, dqx_flat, dqy_flat)
+    qix_jobs = np.array_split(qix_flat, num_jobs)
+    qiy_jobs = np.array_split(qiy_flat, num_jobs)
+    dqx_jobs = np.array_split(dqx_flat, num_jobs)
+    dqy_jobs = np.array_split(dqy_flat, num_jobs)
 
-    # Comment this out for debug
-    qix_jobs = np.array_split(qix_flat, num_cores)
-    qiy_jobs = np.array_split(qiy_flat, num_cores)
-    dqx_jobs = np.array_split(dqx_flat, num_cores)
-    dqy_jobs = np.array_split(dqy_flat, num_cores)
-    print("Begin parallel section")
-
-    result_grids = Parallel(n_jobs=num_cores)(delayed(f)(qix_jobs[i], qiy_jobs[i], dqx_jobs[i], dqy_jobs[i]) for i in range(num_cores))
+    result_grids = Parallel(n_jobs=num_jobs)(delayed(f)(qix_jobs[i], qiy_jobs[i], dqx_jobs[i], dqy_jobs[i]) for i in range(num_jobs))
 
     # Manually clean up large objects
     del qix_grid, qiy_grid, dqx_grid, dqy_grid, qix_flat, qiy_flat, dqx_flat, dqy_flat, qix_jobs, qiy_jobs, dqx_jobs, dqy_jobs
@@ -85,43 +102,42 @@ def grid_integration_momentum(f, dqix, dqiy, dqx, dqy, num_samples_wide_x, num_s
         else:
             ft_axis = np.arange(-(num_points-1)/2, (num_points-1)/2, dtype=np.float32)*1/(q_increment*num_points)
         return ft_axis
-        #2pi factor? todo
+
     xi_array = get_fourier_transformed_axis(q_increment=(2*dqix)/(2*np.pi*num_samples_wide_x), num_points=num_samples_wide_x)
     yi_array = get_fourier_transformed_axis(q_increment=(2*dqiy)/(2*np.pi*num_samples_wide_y), num_points=num_samples_wide_y)
     dx_array = get_fourier_transformed_axis(q_increment=(2*dqx)/(2*np.pi*num_samples_narrow_x), num_points=num_samples_narrow_x)
     dy_array = get_fourier_transformed_axis(q_increment=(2*dqy)/(2*np.pi*num_samples_narrow_y), num_points=num_samples_narrow_y)
 
     squared_result = np.asarray(np.abs(ft_result_grid_shifted)**2, dtype=np.float32)
-#    squared_result = np.asarray(np.abs(ft_result_grid_shifted)**2)
-
     del ft_result_grid_shifted
+
     # Return the absolute value of the Fourier transformed grid squared, as well as the four new axes
     return squared_result, xi_array, yi_array, dx_array, dy_array
 
 def n_o(wavelength):
     """
-    Ordinary refractive index for BBO crystal, from Sellmeier equations for BBO.
+    Ordinary refractive index for BBO crystal, from the Sellmeier equations for BBO.
     
-    :param wavelength: Wavelength of light entering the crystal.
+    :param wavelength: Wavelength of light entering the crystal, in microns.
     """
     lambda_sq_in_microns = (wavelength*10**6)**2
     return np.sqrt(np.abs(2.7405 + 0.0184 / (lambda_sq_in_microns - 0.0179) - 0.0155 * lambda_sq_in_microns))
 
 def n_e(wavelength):
     """
-    Extraordinary refractive index for BBO crystal, from Sellmeier equations for BBO.
+    Extraordinary refractive index for BBO crystal, from the Sellmeier equations for BBO.
 
-    :param wavelength: Wavelength of light entering the crystal.
+    :param wavelength: Wavelength of light entering the crystal, in microns.
     """
     lambda_sq_in_microns = (wavelength*10**6)**2
     return np.sqrt(np.abs(2.3730 + 0.0128 / (lambda_sq_in_microns - 0.0156) - 0.0044 * lambda_sq_in_microns))
 
 def phase_matching(delta_k, L):
     """
-    Return the phase matching function given a delta_k and length L. 
+    Return the phase matching function given a delta k-vector `delta_k` and length `L`. 
     
-    :param delta_k: Change in wave vector k
-    :param L: Length of crystal in meters
+    :param delta_k: Change in wave vector k, in Radians per meter.
+    :param L: Length of crystal in meters.
     """
     return L * np.sinc(delta_k * L / 2) * np.exp(1j * delta_k * L / 2)
 
@@ -129,8 +145,8 @@ def alpha(thetap, lambd):
     """ Return the alpha coefficient as a function of pump incidence tilt angle `thetap` and 
     wavelength `lambd`.
 
-    :param thetap: Angle theta along which pump beam enters BBO crystal (about y-axis)
-    :param lambd: Wavelength, in meters
+    :param thetap: Angle in Radians along which pump beam enters BBO crystal (about y-axis).
+    :param lambd: Wavelength, in meters.
     """
     alpha = ((n_o(lambd)**2 - n_e(lambd)**2) * np.sin(thetap) * np.cos(thetap)) / \
     (n_o(lambd)**2 * np.sin(thetap)**2 + n_e(lambd)**2 * np.cos(thetap)**2)
@@ -138,10 +154,10 @@ def alpha(thetap, lambd):
 
 def beta(thetap, lambd):
     """ Return the `beta` coefficient as a function of pump incidence tilt angle `thetap` and 
-    pump wavelength `lambd`.
+    wavelength `lambd`.
 
-    :param thetap: Angle theta along which pump beam enters BBO crystal (about y-axis)
-    :param lambd: Wavelength, in meters
+    :param thetap: Angle in Radians along which pump beam enters BBO crystal (about y-axis).
+    :param lambd: Wavelength, in meters.
     """
     beta = (n_o(lambd) * n_e(lambd)) / \
     (n_o(lambd)**2 * np.sin(thetap)**2 + n_e(lambd)**2 * np.cos(thetap)**2)
@@ -149,10 +165,10 @@ def beta(thetap, lambd):
 
 def gamma(thetap, lambd):
     """ Return the gamma coefficient as a function of pump incidence tilt angle `thetap` and 
-    pump wavelength `lambd`.
+    wavelength `lambd`.
 
-    :param thetap: Angle `thetap` along which pump beam enters BBO crystal (about y-axis)
-    :param lambd: Wavelength, in meters
+    :param thetap: Angle in Radians along which pump beam enters BBO crystal (about y-axis).
+    :param lambd: Wavelength, in meters.
     """
     gamma = n_o(lambd) / \
     np.sqrt((n_o(lambd)**2 * np.sin(thetap)**2 + n_e(lambd)**2 * np.cos(thetap)**2))
@@ -163,8 +179,8 @@ def eta(thetap, lambd):
     Return the eta coefficient as a function of pump incidence tilt angle `thetap` and 
     wavelength `lambd`.
     
-    :param thetap: Angle `thetap` along which pump beam enters BBO crystal (about y-axis)
-    :param lambd: Wavelength, in meters
+    :param thetap: Angle in Radians along which pump beam enters BBO crystal (about y-axis).
+    :param lambd: Wavelength, in meters.
     """
     eta = (n_o(lambd) * n_e(lambd)) / \
     np.sqrt((n_o(lambd)**2 * np.sin(thetap)**2 + n_e(lambd)**2 * np.cos(thetap)**2))
@@ -174,20 +190,20 @@ def delta_k_type_1(qsx, qix, qsy, qiy, thetap, omegap, omegas, omegai):
     """
     Return delta_k for type I phase matching, for BBO crystal.
     
-    :param qsx: k-vector in the x direction for signal
-    :param qix: k-vector in the x direction for idler
-    :param qsy: k-vector in the y direction for signal
-    :param qiy: k-vector in the y direction for idler
-    :param thetap: Angle theta along which pump beam enters BBO crystal (about y-axis)
-    :param omegap: Angular frequency of the pump beam (TODO, overdefined)
-    :param omegas: Angular frequency of the signal beam
-    :param omegai: Angular frequency of the idler beam
+    :param qsx: k-vector in the x direction for signal.
+    :param qix: k-vector in the x direction for idler.
+    :param qsy: k-vector in the y direction for signal.
+    :param qiy: k-vector in the y direction for idler.
+    :param thetap: Angle theta in Radians along which pump photon enters BBO crystal (about y-axis).
+    :param omegap: Angular frequency of the pump photon.
+    :param omegas: Angular frequency of the signal photon.
+    :param omegai: Angular frequency of the idler photon.
     """
     lambdas = (2 * np.pi * C) / omegas
     lambdai = (2 * np.pi * C) / omegai
     lambdap = (2 * np.pi * C) / omegap
 
-    qpx = qsx + qix # Conservation of momentum
+    qpx = qsx + qix # 
     qpy = qsy + qiy # Conservation of momentum
     qs_abs = np.sqrt(qsx**2 + qsy**2)
     qi_abs = np.sqrt(qix**2 + qiy**2)
@@ -202,20 +218,20 @@ def delta_k_type_1(qsx, qix, qsy, qiy, thetap, omegap, omegas, omegai):
 def delta_k_type_2(q1x, q2x, q1y, q2y, thetap, omegap, omega1, omega2):
     """ Return delta_k for type II, case 1 phase matching, for BBO crystal.
     
-    :param qsx: k-vector in the x direction for signal
-    :param qix: k-vector in the x direction for idler
-    :param qsy: k-vector in the y direction for signal
-    :param qiy: k-vector in the y direction for idler
-    :param thetap: Angle theta along which pump beam enters BBO crystal (about y-axis)
-    :param omegap: Angular frequency of the pump beam (TODO, overdefined)
-    :param omegai: Angular frequency of the idler beam
-    :param omegas: Angular frequency of the signal beam
+    :param q1x: k-vector in the x direction for signal (idler).
+    :param q2x: k-vector in the x direction for idler (signal).
+    :param q1y: k-vector in the y direction for signal (idler).
+    :param q2y: k-vector in the y direction for idler (signal).
+    :param thetap: Angle theta in Radians along which pump photon enters the BBO crystal (about y-axis).
+    :param omegap: Angular frequency of the pump photon.
+    :param omega1: Angular frequency of the signal (idler) photon.
+    :param omega2: Angular frequency of the idler (signal) photon.
     """
     lambda1 = (2 * np.pi * C) / omega1
     lambda2 = (2 * np.pi * C) / omega2
     lambdap = (2 * np.pi * C) / omegap
 
-    qpx = q1x + q2x # Conservation of momentum
+    qpx = q1x + q2x # Conservation of momentum # Pass in qpx, todo?
     qpy = q1y + q2y # Conservation of momentum
     q1_abs = np.sqrt(q1x**2 + q1y**2)
     q2_abs = np.sqrt(q2x**2 + q2y**2)
@@ -230,24 +246,33 @@ def delta_k_type_2(q1x, q2x, q1y, q2y, thetap, omegap, omega1, omega2):
     return delta_k
 
 def pump_function(qpx, qpy, kp, omega, w0, d):
-    """ Function for the Gaussian pump beam. (equation 31)
+    """ Function producing the Gaussian pump beam.
 
-    :param qpx: k-vector in the x direction for pump
-    :param qpy: k-vector in the y direction for pump
-    :param kp: k-vector in the z direction for pump
-    :param omega: Pump frequency
+    :param qpx: k-vector in the x direction for pump.
+    :param qpy: k-vector in the y direction for pump.
+    :param kp: k-vector in the z direction for pump.
+    :param omega: Pump frequency.
+    :param w0: Size of pump beam waist (meters).
+    :param d: Distance of pump waist from crystal (meters).
     """
     qp_abs = np.sqrt(qpx**2 + qpy**2)
     V = np.exp(-qp_abs**2 * w0**2 / 4) * np.exp(-1j * qp_abs**2 * d / (2 * kp))
     return V
 
-def get_rate_integrand(thetap, omegai, omegas, simulation_parameters, phase_matching_case):
+def get_rate_integrand(thetap, omegai, omegas, z_pos, w0, d, crystal_length, phase_matching_case):
     """
-    Return the integrand used to calculate rates and conditional probabilities
-    """
-    # Also can multiply by detector efficiencies, and a constant dependent on epsilon_0 and chi_2
+    Return the integrand used to calculate entangled photon generation rates.
+    This is taken from equation 84 from Suman Karan et al 2020 J. Opt. 22 08350.
 
-    # z is distance away from crystal along pump propagation direction
+    :param thetap: Angle theta in Radians along which pump beam enters BBO crystal (about y-axis).
+    :param omegai: The angular frequency of the idler.
+    :param omegas: The angular frequency of the signal.
+    :param z_pos: The view location in the z direction, from crystal (meters).
+    :param w0: Size of pump beam waist (meter).
+    :param d: Distance of pump waist from crystal (meters).
+    :param crystal_length: The length of the crystal (meters).
+    :param phase_matching_case: The phase-matching case: type I, type II idler or type II signal.
+    """
     ks = omegas / C
     ki = omegai / C
     kpz = (omegas + omegai) / C # This is on page 8 in the bottom paragraph on the left column
@@ -257,7 +282,6 @@ def get_rate_integrand(thetap, omegai, omegas, simulation_parameters, phase_matc
     d = simulation_parameters["pump_waist_distance"]
     crystal_length = simulation_parameters["crystal_length"]
 
-
     def rate_integrand(qix, qiy, delta_qx, delta_qy):
         qsx = -qix + delta_qx
         qsy = -qiy + delta_qy
@@ -266,19 +290,20 @@ def get_rate_integrand(thetap, omegai, omegas, simulation_parameters, phase_matc
         qi_abs = np.sqrt(qix**2 + qiy**2)
 
         # Calculate delta_k based on the type of phase-matching
-        if phase_matching_case == "1": # TODO change to Enum
+        if phase_matching_case == PhaseMatchingCase.TYPE_ONE:
             delta_k_term = delta_k_type_1(qsx=qsx, qix=qix, qsy=qsy, qiy=qiy, thetap=thetap,
                                           omegap=omegap, omegai=omegai, omegas=omegas)
-        elif phase_matching_case == "2s":
+        elif phase_matching_case == PhaseMatchingCase.TYPE_TWO_SIGNAL:
             delta_k_term = delta_k_type_2(q1x=qsx, q2x=qix, q1y=qsy, q2y=qiy, thetap=thetap,
                                           omegap=omegap, omega1=omegas, omega2=omegai)
-        elif phase_matching_case == "2i":
+        elif phase_matching_case == PhaseMatchingCase.TYPE_TWO_IDLER:
             delta_k_term = delta_k_type_2(q1x=qix, q2x=qsx, q1y=qiy, q2y=qsy, thetap=thetap,
                                           omegap=omegap, omega1=omegai, omega2=omegas)
         else:
             raise TypeError(f"Error, unknown phase matching case {phase_matching_case}.")
 
-        # The exp(1j * ((qsx * xs_pos + qsy * ys_pos) + (qix * xi_pos + qiy * yi_pos))) portion of the integrand makes it a Fourier transform,
+        # The exp(1j * ((qsx * xs_pos + qsy * ys_pos) + (qix * xi_pos + qiy * yi_pos))) portion of the
+        # integrand (in the text) makes it a Fourier transform,
         # avoiding the necessity of actually doing the four-dimensional momentum integral later.
         integrand = np.exp(1j * (ks + ki) * z_pos) * pump_function(qix + qsx, qiy + qsy, kpz, omegap, w0, d) * \
             phase_matching(delta_k_term, crystal_length) * \
@@ -288,86 +313,28 @@ def get_rate_integrand(thetap, omegai, omegas, simulation_parameters, phase_matc
 
     return rate_integrand
 
-
-def calculate_conditional_probability(xi_pos, yi_pos, thetap, omegai, omegas, simulation_parameters):
-    """
-    Return the conditional probability of detecting the idler at any x pos and at yi_pos given the signal is detected
-    at (xs_pos, ys_pos). Equation 84.
-
-    :param ys_pos: Location of signal photon in the y direction a distance z away from the crystal
-    :param xi_pos: Location of idler photon in the x direction a distance z away from the crystal
-    :param yi_pos: Location of idler photon in the y direction a distance z away from the crystal
-    TODO reduce duplicate code with calculate_rings
-    """
-    momentum_span_wide = simulation_parameters.get("momentum_span_wide")
-    momentum_span_narrow = simulation_parameters.get("momentum_span_narrow")
-    num_samples_momentum_wide = simulation_parameters["num_samples_momentum_wide"]
-    num_samples_momentum_narrow = simulation_parameters["num_samples_momentum_narrow"]
-    num_cores = simulation_parameters.get("simulation_cores")
-    phase_matching_type = simulation_parameters.get("phase_matching_type")
-
-    dqix = (omegai / C) * momentum_span_wide
-    dqiy = (omegai / C) * momentum_span_wide
-    dqx = (omegas / C) * momentum_span_narrow
-    dqy = (omegas / C) * momentum_span_narrow
-
-    def get_integral_grid(phase_matching_case):
-        rate_integrand = get_rate_integrand(thetap, omegai, omegas, simulation_parameters, phase_matching_case)
-        # TODO make below more general? wrt 1 and 2 not s and i
-        result_grid, xis, yis, dxs, dys = grid_integration_momentum(f=rate_integrand, dqix=dqix, dqiy=dqiy, dqx=dqx, dqy=dqy,
-                                                num_samples_wide=num_samples_momentum_wide,
-                                                num_samples_narrow=num_samples_momentum_narrow, num_cores=num_cores)
-
-        # Choose conditional probability grid of one photon
-        xi_pos = 2e-3 #TODO pass in
-        yi_pos = 0 # TODO pass in
-
-        index_xi = (np.abs(xi_pos - xis)).argmin()
-        index_yi = (np.abs(yi_pos - yis)).argmin()
-
-        result_grid_probability = result_grid[index_xi, index_yi, :, :]
-
-        # # Transform axes
-        xss = dxs - xi_pos
-        yss = dys - yi_pos
-
-        return result_grid_probability, xss, yss
-
-    if phase_matching_type == 1:
-        result, xs, ys = get_integral_grid(phase_matching_case="1")
-    elif phase_matching_type == 2:
-        result1, _, _ = get_integral_grid(phase_matching_case="2s") #TODO ENUMS!
-        result2, xs, ys = get_integral_grid(phase_matching_case="2i")
-        result = result1 + result2
-    else:
-        raise ValueError(f"Unknown phase_matching_type {phase_matching_type}.")
-
-    return result, xs, ys
-    #TODO expand to include type II
-    # Also could return signal probability
-    # Also todo, return the actual points used
-
-def calculate_rings(thetap, omegai, omegas, simulation_parameters):
+def calculate_rings(thetap, omegai, omegas, momentum_span_wide_x, momentum_span_wide_y,
+                    momentum_span_narrow_x, momentum_span_narrow_y,
+                    num_samples_momentum_wide_x, num_samples_momentum_wide_y,
+                    num_samples_momentum_narrow_x, num_samples_momentum_narrow_y,
+                    num_jobs, phase_matching_type):
     """
     Return the entangled pair generation rate at location (x, y, z) from the crystal. Equation 84.
 
-    :param dx: One half the area of real space centered around the origin along the x direction which the idler (signal) will be integrated over
-    :param dy: One half the area of real space centered around the origin along the x direction which the idler (signal) will be integrated over
+    :param thetap: Angle theta in Radians along which pump photon enters BBO crystal (about y-axis).
+    :param omegai: Angular frequency of the idler.
+    :param omegas: Angular frequency of the signal.
+    :param momentum_span_wide_x: One half of the interval of k-vector along x for the idler, to integrate over.
+    :param momentum_span_wide_y: One half of the interval of k-vector along y for the idler, to integrate over.
+    :param momentum_span_narrow_x: One half of the interval of the difference in k-vectors along x for the signal and idler.
+    :param momentum_span_narrow_y: One half of the interval of the difference in k-vectors along y for the signal and idler.
+    :param num_samples_momentum_wide_x:The number of samples to integrate over along x for the momentum_span_wide_x interval.
+    :param num_samples_momentum_wide_y: The number of samples to integrate over along y for the momentum_span_wide_y interval.
+    :param num_samples_momentum_narrow_x: The number of samples to integrate over along y for the momentum_span_narrow_x interval.
+    :param num_samples_momentum_narrow_y: The number of samples to integrate over along y for the momentum_span_narrow_y interval.
+    :param num_jobs: The number of jobs to parallelize the batched function evaluation over.
+    :param phase_matching_type: The type of phase-matching (type I or type II).
     """
-    momentum_span_wide_x = simulation_parameters.get("momentum_span_wide_x")
-    momentum_span_wide_y = simulation_parameters.get("momentum_span_wide_y")
-
-    momentum_span_narrow_x = simulation_parameters.get("momentum_span_narrow_x")
-    momentum_span_narrow_y = simulation_parameters.get("momentum_span_narrow_y")
-
-    num_samples_momentum_wide_x = simulation_parameters["num_samples_momentum_wide_x"]
-    num_samples_momentum_wide_y = simulation_parameters["num_samples_momentum_wide_y"]
-
-    num_samples_momentum_narrow_x = simulation_parameters["num_samples_momentum_narrow_x"]
-    num_samples_momentum_narrow_y = simulation_parameters["num_samples_momentum_narrow_y"]
-
-    num_cores = simulation_parameters.get("simulation_cores") #get rid of .get
-    phase_matching_type = simulation_parameters.get("phase_matching_type")
 
     dqix = (omegai / C) * momentum_span_wide_x
     dqiy = (omegai / C) * momentum_span_wide_y
@@ -376,23 +343,23 @@ def calculate_rings(thetap, omegai, omegas, simulation_parameters):
 
     def get_integral_grid(phase_matching_case):
         rate_integrand = get_rate_integrand(thetap, omegai, omegas, simulation_parameters, phase_matching_case)
-        # TODO make below more general? wrt 1 and 2 not s and i
+        # TODO make more general, not wrt i, s
         result_grid, xis, yis, dxs, dys = grid_integration_momentum(f=rate_integrand, dqix=dqix, dqiy=dqiy, dqx=dqx, dqy=dqy,
                                                 num_samples_wide_x=num_samples_momentum_wide_x,
                                                 num_samples_wide_y=num_samples_momentum_wide_y,
                                                 num_samples_narrow_x=num_samples_momentum_narrow_x, 
                                                 num_samples_narrow_y=num_samples_momentum_narrow_y, 
-                                                num_cores=num_cores)
+                                                num_jobs=num_jobs)
 
         # Sum result over two dimensions (integrate) TODO multiply by volume also
         result_grid_sum_over_dx = np.sum(result_grid, axis=3)
         return np.sum(result_grid_sum_over_dx, axis=2), xis, yis
 
     if phase_matching_type == 1:
-        result, xs, ys = get_integral_grid(phase_matching_case="1")
+        result, xs, ys = get_integral_grid(phase_matching_case=PhaseMatchingCase.TYPE_ONE)
     elif phase_matching_type == 2:
-        result1, _, _ = get_integral_grid(phase_matching_case="2s") #TODO ENUMS!
-        result2, xs, ys = get_integral_grid(phase_matching_case="2i")
+        result1, _, _ = get_integral_grid(phase_matching_case=PhaseMatchingCase.TYPE_TWO_SIGNAL)
+        result2, xs, ys = get_integral_grid(phase_matching_case=PhaseMatchingCase.TYPE_TWO_IDLER)
         result = result1 + result2
     else:
         raise ValueError(f"Unknown phase_matching_type {phase_matching_type}.")
@@ -416,7 +383,7 @@ def simulate_ring_momentum(simulation_parameters):
 
     momentum_span_x = simulation_parameters["momentum_span_x"]
     momentum_span_y = simulation_parameters["momentum_span_y"]
-    signal_x_pos = simulation_parameters["signal_x_pos"] #change to xs_pos TODO
+    signal_x_pos = simulation_parameters["signal_x_pos"]
     signal_y_pos = simulation_parameters["signal_y_pos"]
     idler_x_pos = simulation_parameters["idler_x_pos"]
     idler_y_pos = simulation_parameters["idler_y_pos"]
@@ -434,12 +401,12 @@ def simulate_ring_momentum(simulation_parameters):
     X, Y = np.meshgrid(x, y)
 
     if phase_matching_type == 1:
-        rate_integrand = get_rate_integrand(thetap, omegai, omegas, simulation_parameters, "1")
+        rate_integrand = get_rate_integrand(thetap, omegai, omegas, simulation_parameters, PhaseMatchingCase.TYPE_ONE)
         Z1 = rate_integrand(X, Y, 2*X, 2*Y)
         Z2 = rate_integrand(X, Y, 0, 0)
     elif phase_matching_type == 2:
-        rate_integrand_2s = get_rate_integrand(thetap, omegai, omegas, simulation_parameters, "2s") #TODO ENUMS!
-        rate_integrand_2i = get_rate_integrand(thetap, omegai, omegas, simulation_parameters, "2i")
+        rate_integrand_2s = get_rate_integrand(thetap, omegai, omegas, simulation_parameters, PhaseMatchingCase.TYPE_TWO_SIGNAL)
+        rate_integrand_2i = get_rate_integrand(thetap, omegai, omegas, simulation_parameters, PhaseMatchingCase.TYPE_TWO_IDLER)
         Z1 = rate_integrand_2s(X, Y, 2*X, 2*Y) + rate_integrand_2i(X, Y, 2*X, 2*Y)
         Z2 = rate_integrand_2s(X, Y, 0, 0) + rate_integrand_2i(X, Y, 0, 0)
     else:
@@ -500,80 +467,6 @@ def simulate_ring_momentum(simulation_parameters):
     with open(f"{save_directory}/{time_str}_momentum_params.txt", 'w') as file:
         file.write(json.dumps(simulation_parameters))
 
-def simulate_conditional_probability(simulation_parameters):
-    """
-    Simulate and plot a slice of the conditional probabilities of detecting the idler photon, 
-    given the signal photon is detected on the x-axis.
-
-    :param simulation_parameters: A dict containing relevant parameters for running the simulation.
-    TODO use kwargs instead of a dict!
-    """
-    start_time = time.time()
-
-    thetap = simulation_parameters["thetap"] # Incident pump angle, in Radians
-    omegap = simulation_parameters["omegap"] # Pump frequency (Radians / sec)
-    omegai = simulation_parameters["omegai"] # Idler frequency (Radians / sec)
-    omegas = simulation_parameters["omegas"] # Signal frequency (Radians / sec)
-    phase_matching_type = simulation_parameters["phase_matching_type"]
-
-    num_plot_x_points = simulation_parameters["num_plot_x_points"]
-    idler_x_span  = simulation_parameters["idler_x_span"]
-    idler_y_pos = simulation_parameters["idler_y_pos"]
-    signal_x_pos = simulation_parameters["signal_x_pos"] # Span in the x-direction to fix signal at
-    signal_y_pos = simulation_parameters["signal_y_pos"]
-
-    save_directory = simulation_parameters["save_directory"]
-    num_cores = simulation_parameters["simulation_cores"]
-
-    # x_idler = np.linspace(-idler_x_span, idler_x_span, num_plot_x_points)
-
-    # calculate_conditional_probability_vec = np.vectorize(calculate_conditional_probability)
-    # parallel_calc_conditional_prob = functools.partial(calculate_conditional_probability_vec, yi_pos=idler_y_pos, xs_pos=signal_x_pos, ys_pos=signal_y_pos,
-    #                                                    thetap=thetap, omegai=omegai, omegas=omegas, simulation_parameters=simulation_parameters)
-
-    # # Inefficient; you don't have to call this each time (below)
-    # z1 = [parallel_calc_conditional_prob(x_i) for x_i in x_idler] # You should also return the actual point that got plotted
-
-    # Run calculate_pair_generation_rate
-  ##  xs_pos, ys_pos, xi_pos, yi_pos, thetap, omegai, omegas, simulation_parameters
-    Z1, xis, yis = calculate_conditional_probability(xi_pos=0, yi_pos=idler_y_pos,
-                                                  thetap=thetap, omegai=omegai, omegas=omegas,
-                                                  simulation_parameters=simulation_parameters)
-
-    plt.figure(figsize=(8, 6))
-    plt.imshow(np.abs(Z1), extent=(xis.min(), xis.max(), yis.min(), yis.max()), origin='lower', cmap='gray')
-
-    plt.xlabel("x (m)")
-    plt.ylabel("y (m)")
-
-    plt.title( "Conditional probability of signal given idler at TODO" )
-
-    end_time = time.time()
-    print(f"Elapsed time: {end_time - start_time}")
-
-    # Get current time for file name
-    time_str = get_current_time()
-
-    plt.savefig(f"{save_directory}/{time_str}_rings_conditional_probability.png", dpi=300)
-    plt.close()
-
-    # Save parameters and data
-    with open(f"{save_directory}/{time_str}_ring_conditional_probability.pkl", "wb") as file:
-        pickle.dump(Z1, file)
-
-    # Save parameters to a pickled file
-    with open(f"{save_directory}/{time_str}_ring_conditional_probability_params.pkl", "wb") as file:
-        pickle.dump(simulation_parameters, file)
-
-    # Save parameters to a text file
-    with open(f"{save_directory}/{time_str}_ring_conditional_probability_params.txt", 'w') as file:
-        file.write(json.dumps(simulation_parameters))
-
-    # Save time to a text file
-    time_info = {"Time Elapsed in seconds" : end_time - start_time}
-    with open(f"{save_directory}/{time_str}_ring_conditional_probability_time.txt", 'w') as file:
-        file.write(json.dumps(time_info))
-
 def simulate_rings(simulation_parameters):
     """
     Simulate and plot entangled pair rings by integrating the conditional probability of detecting the signal photon given detecting the 
@@ -593,18 +486,14 @@ def simulate_rings(simulation_parameters):
     crystal_length = simulation_parameters["crystal_length"] # Length of the crystal, in meters
     phase_matching_type = simulation_parameters["phase_matching_type"]
 
-    num_cores = simulation_parameters["simulation_cores"] # Number of cores to use in the simulation
+    num_jobs = simulation_parameters["num_jobs"] # Number of jobs to use for estimating the integral.
     save_directory = simulation_parameters["save_directory"]
 
     # Run calculate_pair_generation_rate in parallel
     Z1, xis, yis = calculate_rings(thetap=thetap, omegai=omegai, omegas=omegas,
-                         simulation_parameters=simulation_parameters)
-
-    # Next, fix idler and integrate over signal
-    # TODO, only relevant for type II
+                                   simulation_parameters=simulation_parameters)
 
     end_time = time.time()
-
     print(f"Elapsed time: {end_time - start_time}")
 
     # Get current time for file name
@@ -613,10 +502,8 @@ def simulate_rings(simulation_parameters):
     # Plot results
     plt.figure(figsize=(8, 6))
     plt.imshow(np.abs(Z1), extent=(xis.min(), xis.max(), yis.min(), yis.max()), origin='lower', cmap='gray')
-
     plt.xlabel("x (m)")
     plt.ylabel("y (m)")
-
     plt.title( "BBO crystal entangled photons rates" )
     plt.savefig(f"{save_directory}/{time_str}_rings.png", dpi=300)    
     plt.close()

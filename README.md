@@ -16,7 +16,12 @@ Coding style
 - Enums and other reduction of duplicate code
 - TODOs
 - num_jobs instead of num_cores
+- Type hints
+- autoformat?/lint?
 
+Final
+- Readme
+- Plots/pics
 
 
 Machine requirements:

@@ -6,7 +6,11 @@ import numpy as np
 def run_sims_type_I():
     """
     Run simulations to reproduce the simulated type I down-converted photon intensity in
-    Figure 8 from Suman Karan et al 2020 J. Opt. 22 083501. 
+    Figure 8 from Suman Karan et al 2020 J. Opt. 22 083501.
+
+    Parameters: TODO
+    z is the distance away from the crystal along pump propagation direction.
+
     """
     dir_string = create_directory(data_directory_path="plots")
 
@@ -37,7 +41,7 @@ def run_sims_type_I():
         "z_pos": z_pos,
         "crystal_length": crystal_length,
         "phase_matching_type": 1,
-        "simulation_cores": 20,
+        "num_jobs": 20,
         "save_directory": dir_string,
     }
 
@@ -61,7 +65,7 @@ def run_sims_type_I():
         "z_pos": z_pos,
         "crystal_length": crystal_length,
         "phase_matching_type": 1,
-        "simulation_cores": 20,
+        "num_jobs": 20,
         "save_directory": dir_string,
     }
 
@@ -85,7 +89,7 @@ def run_sims_type_I():
         "z_pos": z_pos,
         "crystal_length": crystal_length,
         "phase_matching_type": 1,
-        "simulation_cores": 20,
+        "num_jobs": 20,
         "save_directory": dir_string,
     }
 

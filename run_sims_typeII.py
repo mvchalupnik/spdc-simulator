@@ -38,7 +38,7 @@ def run_sims_type_II():
         "z_pos": z_pos,
         "crystal_length": crystal_length,
         "phase_matching_type": 2,
-        "simulation_cores": 20,
+        "num_jobs": 20,
         "save_directory": dir_string,
     }
 
@@ -62,7 +62,7 @@ def run_sims_type_II():
         "z_pos": z_pos,
         "crystal_length": crystal_length,
         "phase_matching_type": 2,
-        "simulation_cores": 20,
+        "num_jobs": 20,
         "save_directory": dir_string,
     }
 
@@ -86,7 +86,7 @@ def run_sims_type_II():
         "z_pos": z_pos,
         "crystal_length": crystal_length,
         "phase_matching_type": 2,
-        "simulation_cores": 20,
+        "num_jobs": 20,
         "save_directory": dir_string,
     }
 
@@ -110,7 +110,7 @@ def run_sims_type_II():
         "z_pos": z_pos,
         "crystal_length": crystal_length,
         "phase_matching_type": 2,
-        "simulation_cores": 20,
+        "num_jobs": 20,
         "save_directory": dir_string,
     }
 
