@@ -5,7 +5,7 @@ import os
 
 def get_current_time():
     """Return current time as a string."""
-    return datetime.now().strftime('%H-%M-%S')
+    return datetime.now().strftime('%Y_%m_%d_%H-%M-%S')
 
 def create_directory(data_directory_path: str, subfolder_name: str = None):
     """
