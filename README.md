@@ -2,13 +2,12 @@
 Simulate count rates for SPDC (BBO bulk crystal).
 
 TODO:
-Basics
-- fig out axes tick labels- check this
-- Fix conditional probability plot (check scaling)
 
 Extras
 - Plot total output power as a function of theta_p and other params
 - Make plot of sinc function with +/- Big omega
+- Can check pump beam size and even linewidth dependence
+- Visibility? (walkoff)
 
 Coding style
 - Don't pass omegap where unnecessary
@@ -16,5 +15,9 @@ Coding style
 - Remove unnecessary imports and other cleaning
 - Enums and other reduction of duplicate code
 - TODOs
+- num_jobs instead of num_cores
 
-- Can check pump beam size and even linewidth dependence... I was unsure about this!
+
+
+Machine requirements:
+(Check my C2D, 250 GB RAM?)
