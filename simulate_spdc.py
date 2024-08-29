@@ -7,6 +7,7 @@ import json
 from file_utils import get_current_time
 import gc
 from enum import Enum, auto
+from typing import Callable
 
 # Constants
 C = 2.99792e8  # Speed of light, in meters per second.
@@ -20,16 +21,16 @@ class PhaseMatchingCase(Enum):
 
 
 def grid_integration_momentum(
-    f,
-    qx,
-    qy,
-    dqx,
-    dqy,
-    num_samples_wide_x,
-    num_samples_wide_y,
-    num_samples_narrow_x,
-    num_samples_narrow_y,
-    num_jobs,
+    f: Callable[[float, float, float, float], np.complex128],
+    qx: float,
+    qy: float,
+    dqx: float,
+    dqy: float,
+    num_samples_wide_x: int,
+    num_samples_wide_y: int,
+    num_samples_narrow_x: int,
+    num_samples_narrow_y: int,
+    num_jobs: int,
 ):
     """
     Integrate a function f (equation 82-84) along four dimensions of momentum: qx (k-vector along x) of idler (signal),
@@ -53,9 +54,6 @@ def grid_integration_momentum(
     qx_array = np.linspace(-qx, qx, num_samples_wide_x, dtype=np.float32,)
     qy_array = np.linspace(-qy, qy, num_samples_wide_y, dtype=np.float32,)
 
-    # dqix should be close to -dqsx and dqiy should be close to -dqsy
-    # so we can write dqix = -dqsx + dqx and dqiy = -dqsy + dqy
-    # and then can use fewer points of integration along the dqx, dqy dimensions.
     dqx_array = np.linspace(-dqx, dqx, num_samples_narrow_x, dtype=np.float32,)
     dqy_array = np.linspace(-dqy, dqy, num_samples_narrow_y, dtype=np.float32,)
 
@@ -171,7 +169,7 @@ def grid_integration_momentum(
     )
 
 
-def n_o(wavelength):
+def n_o(wavelength: float):
     """
     Ordinary refractive index for BBO crystal, from the Sellmeier equations for BBO.
 
@@ -187,7 +185,7 @@ def n_o(wavelength):
     )
 
 
-def n_e(wavelength):
+def n_e(wavelength: float):
     """
     Extraordinary refractive index for BBO crystal, from the Sellmeier equations for BBO.
 
@@ -203,7 +201,7 @@ def n_e(wavelength):
     )
 
 
-def phase_matching(delta_k, L):
+def phase_matching(delta_k: float, L: float):
     """
     Return the phase matching function given a delta k-vector `delta_k` and length `L`.
 
@@ -213,7 +211,7 @@ def phase_matching(delta_k, L):
     return L * np.sinc(delta_k * L / 2) * np.exp(1j * delta_k * L / 2)
 
 
-def alpha(thetap, lambd):
+def alpha(thetap: float, lambd: float):
     """Return the alpha coefficient as a function of pump incidence tilt angle `thetap` and
     wavelength `lambd`.
 
@@ -226,7 +224,7 @@ def alpha(thetap, lambd):
     return alpha
 
 
-def beta(thetap, lambd):
+def beta(thetap: float, lambd: float):
     """Return the `beta` coefficient as a function of pump incidence tilt angle `thetap` and
     wavelength `lambd`.
 
@@ -239,7 +237,7 @@ def beta(thetap, lambd):
     return beta
 
 
-def gamma(thetap, lambd):
+def gamma(thetap: float, lambd: float):
     """Return the gamma coefficient as a function of pump incidence tilt angle `thetap` and
     wavelength `lambd`.
 
@@ -252,7 +250,7 @@ def gamma(thetap, lambd):
     return gamma
 
 
-def eta(thetap, lambd):
+def eta(thetap: float, lambd: float):
     """
     Return the eta coefficient as a function of pump incidence tilt angle `thetap` and
     wavelength `lambd`.
@@ -267,7 +265,7 @@ def eta(thetap, lambd):
 
 
 def delta_k_type_1(
-    qsx, qix, qsy, qiy, thetap, omegas, omegai,
+    qsx: float, qix: float, qsy: float, qiy: float, thetap: float, omegas: float, omegai: float,
 ):
     """
     Return delta_k for type I phase matching, for BBO crystal.
@@ -310,7 +308,7 @@ def delta_k_type_1(
 
 
 def delta_k_type_2(
-    q1x, q2x, q1y, q2y, thetap, omega1, omega2,
+    q1x: float, q2x: float, q1y: float, q2y: float, thetap: float, omega1: float, omega2: float,
 ):
     """Return delta_k for type II, case 1 phase matching, for BBO crystal.
 
@@ -354,7 +352,7 @@ def delta_k_type_2(
     return delta_k
 
 
-def pump_function(qpx, qpy, kp, omega, w0, d):
+def pump_function(qpx: float, qpy: float, kp: float, omega: float, w0: float, d: float):
     """Function producing the Gaussian pump beam.
 
     :param qpx: k-vector in the x direction for pump.
@@ -370,7 +368,7 @@ def pump_function(qpx, qpy, kp, omega, w0, d):
 
 
 def get_rate_integrand(
-    thetap, omegai, omegas, z_pos, w0, d, crystal_length, phase_matching_case,
+    thetap: float, omegai: float, omegas: float, z_pos: float, w0: float, d: float, crystal_length: float, phase_matching_case: Enum,
 ):
     """
     Return the integrand used to calculate entangled photon generation rates.
@@ -455,23 +453,23 @@ def get_rate_integrand(
 
 
 def calculate_rings(
-    thetap,
-    omegai,
-    omegas,
-    momentum_span_wide_x,
-    momentum_span_wide_y,
-    momentum_span_narrow_x,
-    momentum_span_narrow_y,
-    num_samples_momentum_wide_x,
-    num_samples_momentum_wide_y,
-    num_samples_momentum_narrow_x,
-    num_samples_momentum_narrow_y,
-    z_pos,
-    pump_waist_size,
-    pump_waist_distance,
-    crystal_length,
-    num_jobs,
-    phase_matching_type,
+    thetap: float,
+    omegai: float,
+    omegas: float,
+    momentum_span_wide_x: float,
+    momentum_span_wide_y: float,
+    momentum_span_narrow_x: float,
+    momentum_span_narrow_y: float,
+    num_samples_momentum_wide_x: int,
+    num_samples_momentum_wide_y: int,
+    num_samples_momentum_narrow_x: int,
+    num_samples_momentum_narrow_y: int,
+    z_pos: float,
+    pump_waist_size: float,
+    pump_waist_distance: float,
+    crystal_length: float,
+    num_jobs: int,
+    phase_matching_type: Enum,
 ):
     """
     Return the entangled pair generation rate at location (x, y, z) from the crystal. Equation 84.
@@ -508,14 +506,14 @@ def calculate_rings(
 
     def get_integral_grid(phase_matching_case,):
         rate_integrand = get_rate_integrand(
-            thetap,
-            omegai,
-            omegas,
-            z_pos,
-            pump_waist_size,
-            pump_waist_distance,
-            crystal_length,
-            phase_matching_case,
+            thetap=thetap,
+            omegai=omegai,
+            omegas=omegas,
+            z_pos=z_pos,
+            w0=pump_waist_size,
+            d=pump_waist_distance,
+            crystal_length=crystal_length,
+            phase_matching_case=phase_matching_case,
         )
         (result_grid, xs, ys, dxs, dys,) = grid_integration_momentum(
             f=rate_integrand,
@@ -594,14 +592,14 @@ def simulate_ring_momentum(simulation_parameters,):
 
     if phase_matching_type == 1:
         rate_integrand = get_rate_integrand(
-            thetap,
-            omegai,
-            omegas,
-            z_pos,
-            w0,
-            d,
-            crystal_length,
-            PhaseMatchingCase.TYPE_ONE,
+            thetap=thetap,
+            omegai=omegai,
+            omegas=omegas,
+            z_pos=z_pos,
+            w0=w0,
+            d=d,
+            crystal_length=crystal_length,
+            phase_matching_case=PhaseMatchingCase.TYPE_ONE,
         )
         Z1 = rate_integrand(X, Y, 2 * X, 2 * Y) * np.exp(
             1j
@@ -613,24 +611,24 @@ def simulate_ring_momentum(simulation_parameters,):
         )
     elif phase_matching_type == 2:
         rate_integrand_2s = get_rate_integrand(
-            thetap,
-            omegai,
-            omegas,
-            z_pos,
-            w0,
-            d,
-            crystal_length,
-            PhaseMatchingCase.TYPE_TWO_SIGNAL,
+            thetap=thetap,
+            omegai=omegai,
+            omegas=omegas,
+            z_pos=z_pos,
+            w0=w0,
+            d=d,
+            crystal_length=crystal_length,
+            phase_matching_case=PhaseMatchingCase.TYPE_TWO_SIGNAL,
         )
         rate_integrand_2i = get_rate_integrand(
-            thetap,
-            omegai,
-            omegas,
-            z_pos,
-            w0,
-            d,
-            crystal_length,
-            PhaseMatchingCase.TYPE_TWO_IDLER,
+            thetap=thetap,
+            omegai=omegai,
+            omegas=omegas,
+            z_pos=z_pos,
+            w0=w0,
+            d=d,
+            crystal_length=crystal_length,
+            phase_matching_case=PhaseMatchingCase.TYPE_TWO_IDLER,
         )
         Z1 = rate_integrand_2s(X, Y, 2 * X, 2 * Y) * np.exp(
             1j
