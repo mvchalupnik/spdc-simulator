@@ -28,10 +28,10 @@ def run_sims_type_I():
         "momentum_span_wide_y": 0.045,
         "momentum_span_narrow_x": 0.035,
         "momentum_span_narrow_y": 0.035,
-        "num_samples_momentum_wide_x": 800, #800 for good result
-        "num_samples_momentum_wide_y": 800, #800 for good result
-        "num_samples_momentum_narrow_x": 50, #50 for good result
-        "num_samples_momentum_narrow_y": 50, #50 for good result
+        "num_samples_momentum_wide_x": 800,
+        "num_samples_momentum_wide_y": 800,
+        "num_samples_momentum_narrow_x": 50,
+        "num_samples_momentum_narrow_y": 50,
         "pump_waist_size": w0,
         "pump_waist_distance": d,
         "z_pos": z_pos,
@@ -52,10 +52,10 @@ def run_sims_type_I():
         "momentum_span_wide_y": 0.045,
         "momentum_span_narrow_x": 0.035,
         "momentum_span_narrow_y": 0.035,
-        "num_samples_momentum_wide_x": 800, #800 for good result
-        "num_samples_momentum_wide_y": 800, #800 for good result
-        "num_samples_momentum_narrow_x": 50, #50 for good result
-        "num_samples_momentum_narrow_y": 50, #50 for good result
+        "num_samples_momentum_wide_x": 800,
+        "num_samples_momentum_wide_y": 800,
+        "num_samples_momentum_narrow_x": 50,
+        "num_samples_momentum_narrow_y": 50,
         "pump_waist_size": w0,
         "pump_waist_distance": d,
         "z_pos": z_pos,
@@ -76,10 +76,10 @@ def run_sims_type_I():
         "momentum_span_wide_y": 0.045,
         "momentum_span_narrow_x": 0.035,
         "momentum_span_narrow_y": 0.035,
-        "num_samples_momentum_wide_x": 800, #800 for good result
-        "num_samples_momentum_wide_y": 800, #800 for good result
-        "num_samples_momentum_narrow_x": 50, #50 for good result
-        "num_samples_momentum_narrow_y": 50, #50 for good result
+        "num_samples_momentum_wide_x": 800,
+        "num_samples_momentum_wide_y": 800,
+        "num_samples_momentum_narrow_x": 50,
+        "num_samples_momentum_narrow_y": 50,
         "pump_waist_size": w0,
         "pump_waist_distance": d,
         "z_pos": z_pos,

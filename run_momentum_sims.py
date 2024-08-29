@@ -5,7 +5,7 @@ import numpy as np
 
 def run_momentum_sims():
     """
-    Run simulations to simulate the momentum of type I and type II down-converted photon intensity.
+    Run simulations to simulate the momentum of type I and type II down-converted photons from a BBO crystal.
     """
     dir_string = create_directory(data_directory_path="plots")
 
