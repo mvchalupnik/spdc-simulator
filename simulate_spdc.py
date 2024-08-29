@@ -2,8 +2,6 @@ import time
 import numpy as np
 import matplotlib.pyplot as plt
 from joblib import Parallel, delayed
-import functools
-import itertools
 import pickle
 import json
 from file_utils import get_current_time
@@ -107,7 +105,7 @@ def grid_integration_momentum(
 
     # Reshape grid
     reshaped_result_grid = np.reshape(
-        result_grid, [len(qx_array), len(qy_array), len(dqx_array), len(dqy_array),],
+        result_grid, [len(qx_array), len(qy_array), len(dqx_array), len(dqy_array)]
     )
 
     del result_grids
@@ -330,9 +328,6 @@ def delta_k_type_2(
     lambda2 = (2 * np.pi * C) / omega2
     lambdap = (2 * np.pi * C) / omegap
 
-    qpx = q1x + q2x  # Estimate qpx from conservation of momentum
-    qpy = q1y + q2y  # Estimate qpy from conservation of momentum
-    q1_abs = np.sqrt(q1x ** 2 + q1y ** 2)
     q2_abs = np.sqrt(q2x ** 2 + q2y ** 2)
 
     delta_k = (
@@ -486,12 +481,18 @@ def calculate_rings(
     :param omegas: Angular frequency of the signal.
     :param momentum_span_wide_x: One half of the interval of k-vector along x for the idler, to integrate over.
     :param momentum_span_wide_y: One half of the interval of k-vector along y for the idler, to integrate over.
-    :param momentum_span_narrow_x: One half of the interval of the difference in k-vectors along x for the signal and idler.
-    :param momentum_span_narrow_y: One half of the interval of the difference in k-vectors along y for the signal and idler.
-    :param num_samples_momentum_wide_x:The number of samples to integrate over along x for the momentum_span_wide_x interval.
-    :param num_samples_momentum_wide_y: The number of samples to integrate over along y for the momentum_span_wide_y interval.
-    :param num_samples_momentum_narrow_x: The number of samples to integrate over along y for the momentum_span_narrow_x interval.
-    :param num_samples_momentum_narrow_y: The number of samples to integrate over along y for the momentum_span_narrow_y interval.
+    :param momentum_span_narrow_x: One half of the interval of the difference in k-vectors along x for the
+        signal and idler.
+    :param momentum_span_narrow_y: One half of the interval of the difference in k-vectors along y for the
+        signal and idler.
+    :param num_samples_momentum_wide_x:The number of samples to integrate over along x for the
+        momentum_span_wide_x interval.
+    :param num_samples_momentum_wide_y: The number of samples to integrate over along y for the
+        momentum_span_wide_y interval.
+    :param num_samples_momentum_narrow_x: The number of samples to integrate over along y for the
+        momentum_span_narrow_x interval.
+    :param num_samples_momentum_narrow_y: The number of samples to integrate over along y for the
+        momentum_span_narrow_y interval.
     :param z_pos: The view location in the z direction, from crystal (meters).
     :param pump_waist_size: Size of pump beam waist (meter).
     :param pump_waist_distance: Distance of pump waist from crystal (meters).
@@ -584,13 +585,11 @@ def simulate_ring_momentum(simulation_parameters,):
 
     save_directory = simulation_parameters["save_directory"]
 
-    dqix = (omegai / C) * momentum_span_x
-    dqiy = (omegai / C) * momentum_span_y
-    dqsx = (omegas / C) * momentum_span_x
-    dqsy = (omegas / C) * momentum_span_y
+    qx = (omegai / C) * momentum_span_x
+    qy = (omegai / C) * momentum_span_y
 
-    x = np.linspace(-dqix, dqix, num_plot_qx_points)
-    y = np.linspace(-dqiy, dqiy, num_plot_qy_points)
+    x = np.linspace(-qx, qx, num_plot_qx_points)
+    y = np.linspace(-qy, qy, num_plot_qy_points)
     X, Y = np.meshgrid(x, y)
 
     if phase_matching_type == 1:
@@ -604,8 +603,14 @@ def simulate_ring_momentum(simulation_parameters,):
             crystal_length,
             PhaseMatchingCase.TYPE_ONE,
         )
-        Z1 = rate_integrand(X, Y, 2 * X, 2 * Y)
-        Z2 = rate_integrand(X, Y, 0, 0)
+        Z1 = rate_integrand(X, Y, 2 * X, 2 * Y) * np.exp(
+            1j
+            * (X * signal_x_pos + Y * signal_y_pos + X * idler_x_pos + Y * idler_y_pos)
+        )
+        Z2 = rate_integrand(X, Y, 0, 0) * np.exp(
+            1j
+            * (X * signal_x_pos + Y * signal_y_pos - X * idler_x_pos - Y * idler_y_pos)
+        )
     elif phase_matching_type == 2:
         rate_integrand_2s = get_rate_integrand(
             thetap,
@@ -627,10 +632,22 @@ def simulate_ring_momentum(simulation_parameters,):
             crystal_length,
             PhaseMatchingCase.TYPE_TWO_IDLER,
         )
-        Z1 = rate_integrand_2s(X, Y, 2 * X, 2 * Y) + rate_integrand_2i(
-            X, Y, 2 * X, 2 * Y
+        Z1 = rate_integrand_2s(X, Y, 2 * X, 2 * Y) * np.exp(
+            1j
+            * (X * signal_x_pos + Y * signal_y_pos + X * idler_x_pos + Y * idler_y_pos)
         )
-        Z2 = rate_integrand_2s(X, Y, 0, 0) + rate_integrand_2i(X, Y, 0, 0)
+        +rate_integrand_2i(X, Y, 2 * X, 2 * Y) * np.exp(
+            1j
+            * (X * signal_x_pos + Y * signal_y_pos + X * idler_x_pos + Y * idler_y_pos)
+        )
+        Z2 = rate_integrand_2s(X, Y, 0, 0) * np.exp(
+            1j
+            * (X * signal_x_pos + Y * signal_y_pos - X * idler_x_pos - Y * idler_y_pos)
+        )
+        +rate_integrand_2i(X, Y, 0, 0) * np.exp(
+            1j
+            * (X * signal_x_pos + Y * signal_y_pos - X * idler_x_pos - Y * idler_y_pos)
+        )
     else:
         raise ValueError(f"Unknown phase_matching_type {phase_matching_type}.")
 
@@ -664,8 +681,8 @@ def simulate_ring_momentum(simulation_parameters,):
     cb2.ax.tick_params(labelsize=4)
     cb2.ax.yaxis.offsetText.set_fontsize(4)
 
-    x = np.linspace(-dqix, dqix, num_plot_qx_points)
-    y = np.linspace(-dqiy, dqiy, num_plot_qy_points)
+    x = np.linspace(-qx, qx, num_plot_qx_points)
+    y = np.linspace(-qy, qy, num_plot_qy_points)
     X, Y = np.meshgrid(x, y)
     im3 = ax3.imshow(
         np.abs(Z2),
@@ -714,8 +731,8 @@ def simulate_ring_momentum(simulation_parameters,):
 
 def simulate_rings(simulation_parameters,):
     """
-    Simulate and plot entangled pair rings by integrating the conditional probability of detecting the signal photon given detecting the
-    idler photon, integrating over the possible positions of the idler photon.
+    Simulate and plot entangled pair rings by integrating the conditional probability of detecting the
+    signal photon given detecting the idler photon, integrating over the possible positions of the idler photon.
 
     :param simulation_parameters: A dict containing relevant parameters for running the simulation.
     """
