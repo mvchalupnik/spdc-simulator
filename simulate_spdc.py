@@ -47,6 +47,7 @@ def grid_integration_momentum(f, dqix, dqiy, dqx, dqy, num_samples_wide_x, num_s
     qiy_jobs = np.array_split(qiy_flat, num_cores)
     dqx_jobs = np.array_split(dqx_flat, num_cores)
     dqy_jobs = np.array_split(dqy_flat, num_cores)
+    print("Begin parallel section")
 
     result_grids = Parallel(n_jobs=num_cores)(delayed(f)(qix_jobs[i], qiy_jobs[i], dqx_jobs[i], dqy_jobs[i]) for i in range(num_cores))
 
@@ -90,12 +91,12 @@ def grid_integration_momentum(f, dqix, dqiy, dqx, dqy, num_samples_wide_x, num_s
     dx_array = get_fourier_transformed_axis(q_increment=(2*dqx)/(2*np.pi*num_samples_narrow_x), num_points=num_samples_narrow_x)
     dy_array = get_fourier_transformed_axis(q_increment=(2*dqy)/(2*np.pi*num_samples_narrow_y), num_points=num_samples_narrow_y)
 
-    result_squared = np.abs(ft_result_grid_shifted)**2
-    del ft_result_grid_shifted
-    gc.collect()
+    squared_result = np.asarray(np.abs(ft_result_grid_shifted)**2, dtype=np.float32)
+#    squared_result = np.asarray(np.abs(ft_result_grid_shifted)**2)
 
+    del ft_result_grid_shifted
     # Return the absolute value of the Fourier transformed grid squared, as well as the four new axes
-    return result_squared, xi_array, yi_array, dx_array, dy_array
+    return squared_result, xi_array, yi_array, dx_array, dy_array
 
 def n_o(wavelength):
     """
