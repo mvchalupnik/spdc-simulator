@@ -75,8 +75,7 @@ def grid_integration_momentum(
     dqy_jobs = np.array_split(dqy_flat, num_jobs)
 
     result_grids = Parallel(n_jobs=num_jobs)(
-        delayed(f)(qx_jobs[i], qy_jobs[i], dqx_jobs[i], dqy_jobs[i],)
-        for i in range(num_jobs)
+        delayed(f)(qx_jobs[i], qy_jobs[i], dqx_jobs[i], dqy_jobs[i],) for i in range(num_jobs)
     )
 
     # Manually clean up large objects
@@ -131,29 +130,23 @@ def grid_integration_momentum(
             )
         else:
             ft_axis = (
-                np.arange(
-                    -(num_points - 1) / 2, (num_points - 1) / 2, dtype=np.float32,
-                )
+                np.arange(-(num_points - 1) / 2, (num_points - 1) / 2, dtype=np.float32,)
                 * 1
                 / (q_increment * num_points)
             )
         return ft_axis
 
     x_array = get_fourier_transformed_axis(
-        q_increment=(2 * qx) / (2 * np.pi * num_samples_wide_x),
-        num_points=num_samples_wide_x,
+        q_increment=(2 * qx) / (2 * np.pi * num_samples_wide_x), num_points=num_samples_wide_x,
     )
     y_array = get_fourier_transformed_axis(
-        q_increment=(2 * qy) / (2 * np.pi * num_samples_wide_y),
-        num_points=num_samples_wide_y,
+        q_increment=(2 * qy) / (2 * np.pi * num_samples_wide_y), num_points=num_samples_wide_y,
     )
     dx_array = get_fourier_transformed_axis(
-        q_increment=(2 * dqx) / (2 * np.pi * num_samples_narrow_x),
-        num_points=num_samples_narrow_x,
+        q_increment=(2 * dqx) / (2 * np.pi * num_samples_narrow_x), num_points=num_samples_narrow_x,
     )
     dy_array = get_fourier_transformed_axis(
-        q_increment=(2 * dqy) / (2 * np.pi * num_samples_narrow_y),
-        num_points=num_samples_narrow_y,
+        q_increment=(2 * dqy) / (2 * np.pi * num_samples_narrow_y), num_points=num_samples_narrow_y,
     )
 
     squared_result = np.asarray(np.abs(ft_result_grid_shifted) ** 2, dtype=np.float32,)
@@ -177,11 +170,7 @@ def n_o(wavelength: float):
     """
     lambda_sq_in_microns = (wavelength * 10 ** 6) ** 2
     return np.sqrt(
-        np.abs(
-            2.7405
-            + 0.0184 / (lambda_sq_in_microns - 0.0179)
-            - 0.0155 * lambda_sq_in_microns
-        )
+        np.abs(2.7405 + 0.0184 / (lambda_sq_in_microns - 0.0179) - 0.0155 * lambda_sq_in_microns)
     )
 
 
@@ -193,11 +182,7 @@ def n_e(wavelength: float):
     """
     lambda_sq_in_microns = (wavelength * 10 ** 6) ** 2
     return np.sqrt(
-        np.abs(
-            2.3730
-            + 0.0128 / (lambda_sq_in_microns - 0.0156)
-            - 0.0044 * lambda_sq_in_microns
-        )
+        np.abs(2.3730 + 0.0128 / (lambda_sq_in_microns - 0.0156) - 0.0044 * lambda_sq_in_microns)
     )
 
 
@@ -295,10 +280,7 @@ def delta_k_type_1(
         - eta(thetap, lambdap) * omegap / C
         + C
         / (2 * eta(thetap, lambdap) * omegap)
-        * (
-            beta(thetap, lambdap) ** 2 * qpx ** 2
-            + gamma(thetap, lambdap) ** 2 * qpy ** 2
-        )
+        * (beta(thetap, lambdap) ** 2 * qpx ** 2 + gamma(thetap, lambdap) ** 2 * qpy ** 2)
         + alpha(thetap, lambdap) * (qsx + qix)
         - C / (2 * n_o(lambdas) * omegas) * qs_abs ** 2
         - C / (2 * n_o(lambdai) * omegai) * qi_abs ** 2
@@ -333,10 +315,7 @@ def delta_k_type_2(
         + eta(thetap, lambda1) * omega1 / C
         - C
         / (2 * eta(thetap, lambda1) * omega1)
-        * (
-            beta(thetap, lambda1) ** 2 * q1x ** 2
-            + gamma(thetap, lambda1) ** 2 * q1y ** 2
-        )
+        * (beta(thetap, lambda1) ** 2 * q1x ** 2 + gamma(thetap, lambda1) ** 2 * q1y ** 2)
         + n_o(lambda2) * omega2 / C
         - C * q2_abs ** 2 / (2 * n_o(lambda2) * omega2)
         + alpha(thetap, lambdap) * (q1x + q2x)
@@ -368,7 +347,14 @@ def pump_function(qpx: float, qpy: float, kp: float, omega: float, w0: float, d:
 
 
 def get_rate_integrand(
-    thetap: float, omegai: float, omegas: float, z_pos: float, w0: float, d: float, crystal_length: float, phase_matching_case: Enum,
+    thetap: float,
+    omegai: float,
+    omegas: float,
+    z_pos: float,
+    w0: float,
+    d: float,
+    crystal_length: float,
+    phase_matching_case: Enum,
 ):
     """
     Return the integrand used to calculate entangled photon generation rates.
@@ -387,9 +373,7 @@ def get_rate_integrand(
 
     ks = omegas / C
     ki = omegai / C
-    kpz = (
-        omegas + omegai
-    ) / C  # This is on page 8 in the bottom paragraph on the left column
+    kpz = (omegas + omegai) / C  # This is on page 8 in the bottom paragraph on the left column
 
     def rate_integrand(qix, qiy, delta_qx, delta_qy):
         qsx = -qix + delta_qx
@@ -401,38 +385,18 @@ def get_rate_integrand(
         # Calculate delta_k based on the type of phase-matching
         if phase_matching_case == PhaseMatchingCase.TYPE_ONE:
             delta_k_term = delta_k_type_1(
-                qsx=qsx,
-                qix=qix,
-                qsy=qsy,
-                qiy=qiy,
-                thetap=thetap,
-                omegai=omegai,
-                omegas=omegas,
+                qsx=qsx, qix=qix, qsy=qsy, qiy=qiy, thetap=thetap, omegai=omegai, omegas=omegas,
             )
         elif phase_matching_case == PhaseMatchingCase.TYPE_TWO_SIGNAL:
             delta_k_term = delta_k_type_2(
-                q1x=qsx,
-                q2x=qix,
-                q1y=qsy,
-                q2y=qiy,
-                thetap=thetap,
-                omega1=omegas,
-                omega2=omegai,
+                q1x=qsx, q2x=qix, q1y=qsy, q2y=qiy, thetap=thetap, omega1=omegas, omega2=omegai,
             )
         elif phase_matching_case == PhaseMatchingCase.TYPE_TWO_IDLER:
             delta_k_term = delta_k_type_2(
-                q1x=qix,
-                q2x=qsx,
-                q1y=qiy,
-                q2y=qsy,
-                thetap=thetap,
-                omega1=omegai,
-                omega2=omegas,
+                q1x=qix, q2x=qsx, q1y=qiy, q2y=qsy, thetap=thetap, omega1=omegai, omega2=omegas,
             )
         else:
-            raise TypeError(
-                f"Error, unknown phase matching case {phase_matching_case}."
-            )
+            raise TypeError(f"Error, unknown phase matching case {phase_matching_case}.")
 
         # The exp(1j * ((qsx * xs_pos + qsy * ys_pos) + (qix * xi_pos + qiy * yi_pos))) portion of the
         # integrand (in the text) makes it a Fourier transform,
@@ -441,10 +405,7 @@ def get_rate_integrand(
             np.exp(1j * (ks + ki) * z_pos)
             * pump_function(qix + qsx, qiy + qsy, kpz, omegap, w0, d,)
             * phase_matching(delta_k_term, crystal_length,)
-            * np.exp(
-                1j
-                * (-(qs_abs ** 2) * z_pos / (2 * ks) - qi_abs ** 2 * z_pos / (2 * ki))
-            )
+            * np.exp(1j * (-(qs_abs ** 2) * z_pos / (2 * ks) - qi_abs ** 2 * z_pos / (2 * ki)))
         )
 
         return integrand
@@ -537,16 +498,10 @@ def calculate_rings(
         )
 
     if phase_matching_type == 1:
-        result, xs, ys = get_integral_grid(
-            phase_matching_case=PhaseMatchingCase.TYPE_ONE
-        )
+        result, xs, ys = get_integral_grid(phase_matching_case=PhaseMatchingCase.TYPE_ONE)
     elif phase_matching_type == 2:
-        result1, _, _ = get_integral_grid(
-            phase_matching_case=PhaseMatchingCase.TYPE_TWO_SIGNAL
-        )
-        result2, xs, ys = get_integral_grid(
-            phase_matching_case=PhaseMatchingCase.TYPE_TWO_IDLER
-        )
+        result1, _, _ = get_integral_grid(phase_matching_case=PhaseMatchingCase.TYPE_TWO_SIGNAL)
+        result2, xs, ys = get_integral_grid(phase_matching_case=PhaseMatchingCase.TYPE_TWO_IDLER)
         result = result1 + result2
     else:
         raise ValueError(f"Unknown phase_matching_type {phase_matching_type}.")
@@ -602,12 +557,10 @@ def simulate_ring_momentum(simulation_parameters,):
             phase_matching_case=PhaseMatchingCase.TYPE_ONE,
         )
         Z1 = rate_integrand(X, Y, 2 * X, 2 * Y) * np.exp(
-            1j
-            * (X * signal_x_pos + Y * signal_y_pos + X * idler_x_pos + Y * idler_y_pos)
+            1j * (X * signal_x_pos + Y * signal_y_pos + X * idler_x_pos + Y * idler_y_pos)
         )
         Z2 = rate_integrand(X, Y, 0, 0) * np.exp(
-            1j
-            * (X * signal_x_pos + Y * signal_y_pos - X * idler_x_pos - Y * idler_y_pos)
+            1j * (X * signal_x_pos + Y * signal_y_pos - X * idler_x_pos - Y * idler_y_pos)
         )
     elif phase_matching_type == 2:
         rate_integrand_2s = get_rate_integrand(
@@ -631,20 +584,16 @@ def simulate_ring_momentum(simulation_parameters,):
             phase_matching_case=PhaseMatchingCase.TYPE_TWO_IDLER,
         )
         Z1 = rate_integrand_2s(X, Y, 2 * X, 2 * Y) * np.exp(
-            1j
-            * (X * signal_x_pos + Y * signal_y_pos + X * idler_x_pos + Y * idler_y_pos)
+            1j * (X * signal_x_pos + Y * signal_y_pos + X * idler_x_pos + Y * idler_y_pos)
         )
         +rate_integrand_2i(X, Y, 2 * X, 2 * Y) * np.exp(
-            1j
-            * (X * signal_x_pos + Y * signal_y_pos + X * idler_x_pos + Y * idler_y_pos)
+            1j * (X * signal_x_pos + Y * signal_y_pos + X * idler_x_pos + Y * idler_y_pos)
         )
         Z2 = rate_integrand_2s(X, Y, 0, 0) * np.exp(
-            1j
-            * (X * signal_x_pos + Y * signal_y_pos - X * idler_x_pos - Y * idler_y_pos)
+            1j * (X * signal_x_pos + Y * signal_y_pos - X * idler_x_pos - Y * idler_y_pos)
         )
         +rate_integrand_2i(X, Y, 0, 0) * np.exp(
-            1j
-            * (X * signal_x_pos + Y * signal_y_pos - X * idler_x_pos - Y * idler_y_pos)
+            1j * (X * signal_x_pos + Y * signal_y_pos - X * idler_x_pos - Y * idler_y_pos)
         )
     else:
         raise ValueError(f"Unknown phase_matching_type {phase_matching_type}.")
@@ -652,10 +601,7 @@ def simulate_ring_momentum(simulation_parameters,):
     fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2)
 
     im1 = ax1.imshow(
-        np.abs(Z1),
-        extent=(x.min(), x.max(), y.min(), y.max(),),
-        origin="lower",
-        cmap="gray",
+        np.abs(Z1), extent=(x.min(), x.max(), y.min(), y.max(),), origin="lower", cmap="gray",
     )
     ax1.set_title("Abs(Integrand)")
     ax1.set_xlabel("$q_x$ ($q_{xi} = q_{xs}$) (Rad/m)")
@@ -666,10 +612,7 @@ def simulate_ring_momentum(simulation_parameters,):
     cb1.ax.yaxis.offsetText.set_fontsize(4)
 
     im2 = ax2.imshow(
-        np.real(Z1),
-        extent=(x.min(), x.max(), y.min(), y.max(),),
-        origin="lower",
-        cmap="jet",
+        np.real(Z1), extent=(x.min(), x.max(), y.min(), y.max(),), origin="lower", cmap="jet",
     )
     ax2.set_title("Re(Integrand)")
     ax2.set_xlabel("$q_x$ ($q_{xi} = q_{xs}$) (Rad/m)")
@@ -683,10 +626,7 @@ def simulate_ring_momentum(simulation_parameters,):
     y = np.linspace(-qy, qy, num_plot_qy_points)
     X, Y = np.meshgrid(x, y)
     im3 = ax3.imshow(
-        np.abs(Z2),
-        extent=(x.min(), x.max(), y.min(), y.max(),),
-        origin="lower",
-        cmap="gray",
+        np.abs(Z2), extent=(x.min(), x.max(), y.min(), y.max(),), origin="lower", cmap="gray",
     )
     ax3.set_xlabel("$q_x$ ($q_{xi} = -q_{xs}$) (Rad/m)")
     ax3.set_ylabel("$q_y$ ($q_{yi} = -q_{ys}$) (Rad/m)")
@@ -696,10 +636,7 @@ def simulate_ring_momentum(simulation_parameters,):
     cb3.ax.yaxis.offsetText.set_fontsize(4)
 
     im4 = ax4.imshow(
-        np.real(Z2),
-        extent=(x.min(), x.max(), y.min(), y.max(),),
-        origin="lower",
-        cmap="jet",
+        np.real(Z2), extent=(x.min(), x.max(), y.min(), y.max(),), origin="lower", cmap="jet",
     )
     ax4.set_xlabel("$q_x$ ($q_{xi} = -q_{xs}$) (Rad/m)")
     ax4.set_ylabel("$q_y$ ($q_{yi} = -q_{ys}$) (Rad/m)")
@@ -745,24 +682,16 @@ def simulate_rings(simulation_parameters,):
     momentum_span_narrow_y = simulation_parameters["momentum_span_narrow_y"]
     num_samples_momentum_wide_x = simulation_parameters["num_samples_momentum_wide_x"]
     num_samples_momentum_wide_y = simulation_parameters["num_samples_momentum_wide_y"]
-    num_samples_momentum_narrow_x = simulation_parameters[
-        "num_samples_momentum_narrow_x"
-    ]
-    num_samples_momentum_narrow_y = simulation_parameters[
-        "num_samples_momentum_narrow_y"
-    ]
-    pump_waist_size = simulation_parameters[
-        "pump_waist_size"
-    ]  # Size of pump beam waist
+    num_samples_momentum_narrow_x = simulation_parameters["num_samples_momentum_narrow_x"]
+    num_samples_momentum_narrow_y = simulation_parameters["num_samples_momentum_narrow_y"]
+    pump_waist_size = simulation_parameters["pump_waist_size"]  # Size of pump beam waist
     pump_waist_distance = simulation_parameters[
         "pump_waist_distance"
     ]  # Distance of pump waist from crystal (meters)
     z_pos = simulation_parameters[
         "z_pos"
     ]  # View location in the z direction, from crystal (meters)
-    crystal_length = simulation_parameters[
-        "crystal_length"
-    ]  # Length of the crystal, in meters
+    crystal_length = simulation_parameters["crystal_length"]  # Length of the crystal, in meters
     phase_matching_type = simulation_parameters["phase_matching_type"]
 
     num_jobs = simulation_parameters[

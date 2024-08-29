@@ -29,9 +29,7 @@ def run_momentum_sims():
     """
     dir_string = create_directory(data_directory_path="plots")
 
-    down_conversion_wavelength = (
-        810e-9  # Wavelength of down-converted photons in meters
-    )
+    down_conversion_wavelength = 810e-9  # Wavelength of down-converted photons in meters
     w0 = 388e-6  # beam waist in meters, page 8
     d = 107.8e-2  # pg 15
     z_pos = 35e-3  # 35 millimeters, page 15
