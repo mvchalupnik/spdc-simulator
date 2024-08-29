@@ -1,6 +1,13 @@
 # spdc-simulator
 Simulate count rates for SPDC (BBO bulk crystal).
 
+* Intro about SPDC.
+* Reference paper I followed.
+* Reproducing paper
+* Additional plots
+* How to install and run
+* even more plots
+
 TODO:
 
 Extras
