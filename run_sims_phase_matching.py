@@ -21,7 +21,7 @@ def run_phase_matching_sims():
     """
     dir_string = create_directory(data_directory_path="plots-test")
 
-    down_conversion_wavelength = 810e-9 # Wavelength of down-converted photons in meters
+    down_conversion_wavelength = 810e-9  # Wavelength of down-converted photons in meters
     crystal_length = 0.002  # Length of the nonlinear crystal in meters
 
     # Simulate phase-matching function
@@ -54,6 +54,7 @@ def run_phase_matching_sims():
         "save_directory": dir_string,
     }
     simulate_phase_matching_function(simulation_parameters=simulation_parameters)
+
 
 if __name__ == "__main__":
     run_phase_matching_sims()

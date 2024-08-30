@@ -9,6 +9,7 @@ def get_current_time():
     """Return current time and file identifier as a string."""
     return datetime.now().strftime("%Y_%m_%d_%H-%M-%S_ID-") + str(uuid.uuid4())
 
+
 def create_directory(data_directory_path: str, subfolder_name: str = None):
     """
     Create a new directory if directory for the current day does not exist.
@@ -34,7 +35,14 @@ def create_directory(data_directory_path: str, subfolder_name: str = None):
 
     return dir_string
 
-def save_data(data_to_pickle: list, simulation_parameters: dict, save_directory_name: str, time_str: str, data_name:str):
+
+def save_data(
+    data_to_pickle: list,
+    simulation_parameters: dict,
+    save_directory_name: str,
+    time_str: str,
+    data_name: str,
+):
     """ Save pickled data and save parameter dict to a text file.
 
     :param data_to_pickle: A list of data to save via pickle.
@@ -55,7 +63,8 @@ def save_data(data_to_pickle: list, simulation_parameters: dict, save_directory_
     with open(f"{save_directory_name}/{time_str}_{data_name}_params.txt", "w",) as file:
         file.write(json.dumps(simulation_parameters))
 
-def save_time_info(time_elapsed: float, save_directory_name: str, time_str: str, data_name:str):
+
+def save_time_info(time_elapsed: float, save_directory_name: str, time_str: str, data_name: str):
     """ Save info on how long the function took to run to a text file.
 
     :param time_elapsed: Time elapsed during function call.

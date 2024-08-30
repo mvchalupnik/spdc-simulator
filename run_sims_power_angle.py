@@ -39,8 +39,8 @@ def run_power_angle_sims():
     ######### SIMULATE RING MOMENTUM
     ## Type I
     simulation_parameters = {
-        "start_angle": 28.4*np.pi/180,
-        "end_angle": 29*np.pi/180,
+        "start_angle": 28.4 * np.pi / 180,
+        "end_angle": 29 * np.pi / 180,
         "num_plot_angle_points": 200,
         "num_plot_qx_points": 200,
         "num_plot_qy_points": 200,
@@ -63,8 +63,8 @@ def run_power_angle_sims():
 
     ## Type I, wider plot
     simulation_parameters = {
-        "start_angle": 20*np.pi/180,
-        "end_angle": 40*np.pi/180,
+        "start_angle": 20 * np.pi / 180,
+        "end_angle": 40 * np.pi / 180,
         "num_plot_angle_points": 200,
         "num_plot_qx_points": 200,
         "num_plot_qy_points": 200,
@@ -87,8 +87,8 @@ def run_power_angle_sims():
 
     # Type II
     simulation_parameters = {
-        "start_angle": 40.0*np.pi/180,
-        "end_angle": 41*np.pi/180,
+        "start_angle": 40.0 * np.pi / 180,
+        "end_angle": 41 * np.pi / 180,
         "num_plot_angle_points": 200,
         "num_plot_qx_points": 200,
         "num_plot_qy_points": 200,
@@ -109,6 +109,7 @@ def run_power_angle_sims():
         "save_directory": dir_string,
     }
     simulate_power_with_angle(simulation_parameters=simulation_parameters)
+
 
 if __name__ == "__main__":
     run_power_angle_sims()
