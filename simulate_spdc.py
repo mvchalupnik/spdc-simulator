@@ -8,6 +8,7 @@ from file_utils import get_current_time
 import gc
 from enum import Enum, auto
 from typing import Callable
+from functools import partial
 
 # Constants
 C = 2.99792e8  # Speed of light, in meters per second.
@@ -508,6 +509,79 @@ def calculate_rings(
 
     return result, xs, ys
 
+def calculate_momentum_space_arrays(thetap: float, omegai: float, omegas: float, z_pos: float, w0: float, d: float,
+    crystal_length: float, phase_matching_type: int, signal_x_pos: float, signal_y_pos: float, idler_x_pos: float, idler_y_pos: float, qx_grid: np.ndarray, qy_grid: np.ndarray):
+    """ Calculate arrays of photon coincidence count rates in momentum space. Two arrays will be returned: one for the case where
+    the momentum of the signal equals the momentum of the idler (useful for visualizing the pump beam but not the 
+    phase-matching function), and another for the case where the momentum of the signal equals the negative momentum of the idler
+    (useful for visualizing the phase-matching function).
+
+    :param thetap: Angle theta in Radians along which pump photon enters BBO crystal (about y-axis).
+    :param omegai: Angular frequency of the idler.
+    :param omegas: Angular frequency of the signal.
+    :param z_pos: The view location in the z direction, from crystal (meters).
+    :param w0: Size of pump beam waist (meter).
+    :param d: Distance of pump waist from crystal (meters).
+    :param crystal_length: The length of the crystal (meters).
+    :param phase_matching_type: The type of phase-matching (type I or type II).
+    :param signal_x_pos: The x coordinate of the signal (meters).
+    :param signal_y_pos: The y coordinate of the signal (meters).
+    :param idler_x_pos: The x coordinate of the idler (meters).
+    :param idler_y_pos: The y coordinate of the idler (meters).
+    :param qx_grid: A grid of k-vectors along x to evaluate the integrand over.
+    :param qy_grid: A grid of k-vectors along y to evaluate the integrand over.
+    """
+    if phase_matching_type == 1:
+        rate_integrand = get_rate_integrand(
+            thetap=thetap,
+            omegai=omegai,
+            omegas=omegas,
+            z_pos=z_pos,
+            w0=w0,
+            d=d,
+            crystal_length=crystal_length,
+            phase_matching_case=PhaseMatchingCase.TYPE_ONE,
+        )
+        Z1 = rate_integrand(qx_grid, qy_grid, 2 * qx_grid, 2 * qy_grid) * np.exp(
+            1j * (qx_grid * signal_x_pos + qy_grid * signal_y_pos + qx_grid * idler_x_pos + qy_grid * idler_y_pos)
+        )
+        Z2 = rate_integrand(qx_grid, qy_grid, 0, 0) * np.exp(
+            1j * (qx_grid * signal_x_pos + qy_grid * signal_y_pos - qx_grid * idler_x_pos - qy_grid * idler_y_pos)
+        )
+    elif phase_matching_type == 2:
+        rate_integrand_2s = get_rate_integrand(
+            thetap=thetap,
+            omegai=omegai,
+            omegas=omegas,
+            z_pos=z_pos,
+            w0=w0,
+            d=d,
+            crystal_length=crystal_length,
+            phase_matching_case=PhaseMatchingCase.TYPE_TWO_SIGNAL,
+        )
+        rate_integrand_2i = get_rate_integrand(
+            thetap=thetap,
+            omegai=omegai,
+            omegas=omegas,
+            z_pos=z_pos,
+            w0=w0,
+            d=d,
+            crystal_length=crystal_length,
+            phase_matching_case=PhaseMatchingCase.TYPE_TWO_IDLER,
+        )
+        Z1 = rate_integrand_2s(qx_grid, qy_grid, 2 * qx_grid, 2 * qy_grid) * np.exp(
+            1j * (qx_grid * signal_x_pos + qy_grid * signal_y_pos + qx_grid * idler_x_pos + qy_grid * idler_y_pos)
+        ) + rate_integrand_2i(qx_grid, qy_grid, 2 * qx_grid, 2 * qy_grid) * np.exp(
+            1j * (qx_grid * signal_x_pos + qy_grid * signal_y_pos + qx_grid * idler_x_pos + qy_grid * idler_y_pos)
+        )
+        Z2 = rate_integrand_2s(qx_grid, qy_grid, 0, 0) * np.exp(
+            1j * (qx_grid * signal_x_pos + qy_grid * signal_y_pos - qx_grid * idler_x_pos - qy_grid * idler_y_pos)
+        ) + rate_integrand_2i(qx_grid, qy_grid, 0, 0) * np.exp(
+            1j * (qx_grid * signal_x_pos + qy_grid * signal_y_pos - qx_grid * idler_x_pos - qy_grid * idler_y_pos)
+        )
+    else:
+        raise ValueError(f"Unknown phase_matching_type {phase_matching_type}.")
+    return Z1, Z2
 
 def simulate_ring_momentum(simulation_parameters: dict):
     """
@@ -545,60 +619,10 @@ def simulate_ring_momentum(simulation_parameters: dict):
     y = np.linspace(-qy, qy, num_plot_qy_points)
     X, Y = np.meshgrid(x, y)
 
-    if phase_matching_type == 1:
-        rate_integrand = get_rate_integrand(
-            thetap=thetap,
-            omegai=omegai,
-            omegas=omegas,
-            z_pos=z_pos,
-            w0=w0,
-            d=d,
-            crystal_length=crystal_length,
-            phase_matching_case=PhaseMatchingCase.TYPE_ONE,
-        )
-        Z1 = rate_integrand(X, Y, 2 * X, 2 * Y) * np.exp(
-            1j * (X * signal_x_pos + Y * signal_y_pos + X * idler_x_pos + Y * idler_y_pos)
-        )
-        Z2 = rate_integrand(X, Y, 0, 0) * np.exp(
-            1j * (X * signal_x_pos + Y * signal_y_pos - X * idler_x_pos - Y * idler_y_pos)
-        )
-    elif phase_matching_type == 2:
-        rate_integrand_2s = get_rate_integrand(
-            thetap=thetap,
-            omegai=omegai,
-            omegas=omegas,
-            z_pos=z_pos,
-            w0=w0,
-            d=d,
-            crystal_length=crystal_length,
-            phase_matching_case=PhaseMatchingCase.TYPE_TWO_SIGNAL,
-        )
-        rate_integrand_2i = get_rate_integrand(
-            thetap=thetap,
-            omegai=omegai,
-            omegas=omegas,
-            z_pos=z_pos,
-            w0=w0,
-            d=d,
-            crystal_length=crystal_length,
-            phase_matching_case=PhaseMatchingCase.TYPE_TWO_IDLER,
-        )
-        Z1 = rate_integrand_2s(X, Y, 2 * X, 2 * Y) * np.exp(
-            1j * (X * signal_x_pos + Y * signal_y_pos + X * idler_x_pos + Y * idler_y_pos)
-        ) + \
-        rate_integrand_2i(X, Y, 2 * X, 2 * Y) * np.exp(
-            1j * (X * signal_x_pos + Y * signal_y_pos + X * idler_x_pos + Y * idler_y_pos)
-        )
-        Z2 = rate_integrand_2s(X, Y, 0, 0) * np.exp(
-            1j * (X * signal_x_pos + Y * signal_y_pos - X * idler_x_pos - Y * idler_y_pos)
-        ) + \
-        rate_integrand_2i(X, Y, 0, 0) * np.exp(
-            1j * (X * signal_x_pos + Y * signal_y_pos - X * idler_x_pos - Y * idler_y_pos)
-        )
-
-    else:
-        raise ValueError(f"Unknown phase_matching_type {phase_matching_type}.")
-
+    Z1, Z2 = calculate_momentum_space_arrays(thetap=thetap, omegai=omegai, omegas=omegas, z_pos=z_pos, w0=w0, d=d,
+            crystal_length=crystal_length, phase_matching_type=phase_matching_type,
+            signal_x_pos=signal_x_pos, signal_y_pos=signal_y_pos, idler_x_pos=idler_x_pos, idler_y_pos=idler_y_pos, qx_grid=X, qy_grid=Y)
+    
     fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2)
 
     im1 = ax1.imshow(
@@ -647,7 +671,6 @@ def simulate_ring_momentum(simulation_parameters: dict):
     cb4.ax.yaxis.offsetText.set_fontsize(4)
 
     plt.tight_layout()
-    import pdb; pdb.set_trace()
 
     # Get current time for file name
     time_str = get_current_time()
@@ -801,62 +824,12 @@ def simulate_power_with_angle(simulation_parameters: dict):
     y = np.linspace(-qy, qy, num_plot_qy_points)
     X, Y = np.meshgrid(x, y)
 
-    def new_function(angle): # Todo not duplicate code, used for momentum function above also
-        if phase_matching_type == 1:
-            rate_integrand = get_rate_integrand(
-                thetap=angle,
-                omegai=omegai,
-                omegas=omegas,
-                z_pos=z_pos,
-                w0=w0,
-                d=d,
-                crystal_length=crystal_length,
-                phase_matching_case=PhaseMatchingCase.TYPE_ONE,
-            )
-            Z1 = rate_integrand(X, Y, 2 * X, 2 * Y) * np.exp(
-                1j * (X * signal_x_pos + Y * signal_y_pos + X * idler_x_pos + Y * idler_y_pos)
-            )
-            Z2 = rate_integrand(X, Y, 0, 0) * np.exp(
-                1j * (X * signal_x_pos + Y * signal_y_pos - X * idler_x_pos - Y * idler_y_pos)
-            )
-        elif phase_matching_type == 2:
-            rate_integrand_2s = get_rate_integrand(
-                thetap=angle,
-                omegai=omegai,
-                omegas=omegas,
-                z_pos=z_pos,
-                w0=w0,
-                d=d,
-                crystal_length=crystal_length,
-                phase_matching_case=PhaseMatchingCase.TYPE_TWO_SIGNAL,
-            )
-            rate_integrand_2i = get_rate_integrand(
-                thetap=angle,
-                omegai=omegai,
-                omegas=omegas,
-                z_pos=z_pos,
-                w0=w0,
-                d=d,
-                crystal_length=crystal_length,
-                phase_matching_case=PhaseMatchingCase.TYPE_TWO_IDLER,
-            )
-            Z1 = rate_integrand_2s(X, Y, 2 * X, 2 * Y) * np.exp(
-                1j * (X * signal_x_pos + Y * signal_y_pos + X * idler_x_pos + Y * idler_y_pos)
-            )
-            +rate_integrand_2i(X, Y, 2 * X, 2 * Y) * np.exp(
-                1j * (X * signal_x_pos + Y * signal_y_pos + X * idler_x_pos + Y * idler_y_pos)
-            )
-            Z2 = rate_integrand_2s(X, Y, 0, 0) * np.exp(
-                1j * (X * signal_x_pos + Y * signal_y_pos - X * idler_x_pos - Y * idler_y_pos)
-            )
-            +rate_integrand_2i(X, Y, 0, 0) * np.exp(
-                1j * (X * signal_x_pos + Y * signal_y_pos - X * idler_x_pos - Y * idler_y_pos)
-            )
-        else:
-            raise ValueError(f"Unknown phase_matching_type {phase_matching_type}.")
-        return Z2
+    calculate_arrays = partial(calculate_momentum_space_arrays, omegai=omegai, omegas=omegas, z_pos=z_pos, w0=w0, d=d,
+        crystal_length=crystal_length, phase_matching_type=phase_matching_type,  
+        signal_x_pos=signal_x_pos, signal_y_pos=signal_y_pos, idler_x_pos=idler_x_pos, idler_y_pos=idler_y_pos,
+        qx_grid=X, qy_grid=Y)
 
-    powers = np.array([np.sum(np.abs(new_function(angle))**2) for angle in angles])
+    powers = np.array([np.sum(np.abs(calculate_arrays(angle)[1])**2) for angle in angles])
 
     # Get current time for file name
     time_str = get_current_time()
@@ -893,10 +866,10 @@ def simulate_phase_matching_function(simulation_parameters: dict):
     """
     omega0 = simulation_parameters["omega0"]  # Nominal angular frequency for the signal and idler (Radians / sec)
     fraction_delta_omega = simulation_parameters["fraction_delta_omega"]  # Fraction of the nominal angular frequency to sweep over
-    momentum_signal_x = simulation_parameters["momentum_signal_x"]
-    momentum_signal_y = simulation_parameters["momentum_signal_y"]
-    momentum_idler_x = simulation_parameters["momentum_idler_x"]
-    momentum_idler_y = simulation_parameters["momentum_idler_y"]
+    momentum_signal_x = simulation_parameters["momentum_signal_x"] # x component of k-vector for signal photon
+    momentum_signal_y = simulation_parameters["momentum_signal_y"] # y component of k-vector for signal photon
+    momentum_idler_x = simulation_parameters["momentum_idler_x"] # x component of k-vector for idler photon
+    momentum_idler_y = simulation_parameters["momentum_idler_y"] # y component of k-vector for idler photon
     thetap = simulation_parameters["thetap"]  # Incident pump angle, in Radians
     phase_matching_type = simulation_parameters[
         "phase_matching_type"
@@ -918,7 +891,7 @@ def simulate_phase_matching_function(simulation_parameters: dict):
     if phase_matching_type == 1:
         phase_matching_case = PhaseMatchingCase.TYPE_ONE
     else:
-        phase_matching_case = PhaseMatchingCase.TYPE_TWO_SIGNAL #TODO fix
+        phase_matching_case = PhaseMatchingCase.TYPE_TWO_IDLER #TODO fix
 
     def my_function(oi, os):
         # TODO, this is duplicate code within get_rate_integrand
