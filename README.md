@@ -13,11 +13,8 @@ TODO:
 Extras
 - Plot total output power as a function of theta_p and other params
 - Make plot of sinc function with +/- Big omega
-- Can check pump beam size and even linewidth dependence
 
 
-Coding style
-- Type hints
 
 Final
 - Readme

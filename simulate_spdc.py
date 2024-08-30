@@ -331,6 +331,35 @@ def delta_k_type_2(
 
     return delta_k
 
+def get_phase_matching_term(qsx: float, qix: float, qsy: float, qiy: float, thetap: float, omegas: float, omegai: float, phase_matching_case: Enum):
+    """ Return the appropriate phase-matching term.
+
+    :param qsx: k-vector in the x direction for signal.
+    :param qix: k-vector in the x direction for idler.
+    :param qsy: k-vector in the y direction for signal.
+    :param qiy: k-vector in the y direction for idler.
+    :param thetap: Angle theta in Radians along which pump photon enters BBO crystal (about y-axis).
+    :param omegas: Angular frequency of the signal photon.
+    :param omegai: Angular frequency of the idler photon.
+    :param phase_matching_case: The phase matching case (Type I, Type II signal, or Type II idler), as an Enum.
+    """
+    # Calculate delta_k based on the type of phase-matching
+    if phase_matching_case == PhaseMatchingCase.TYPE_ONE:
+        delta_k_term = delta_k_type_1(
+            qsx=qsx, qix=qix, qsy=qsy, qiy=qiy, thetap=thetap, omegas=omegas, omegai=omegai,
+        )
+    elif phase_matching_case == PhaseMatchingCase.TYPE_TWO_SIGNAL:
+        delta_k_term = delta_k_type_2(
+            q1x=qsx, q2x=qix, q1y=qsy, q2y=qiy, thetap=thetap, omega1=omegas, omega2=omegai,
+        )
+    elif phase_matching_case == PhaseMatchingCase.TYPE_TWO_IDLER:
+        delta_k_term = delta_k_type_2(
+            q1x=qix, q2x=qsx, q1y=qiy, q2y=qsy, thetap=thetap, omega1=omegai, omega2=omegas,
+        )
+    else:
+        raise TypeError(f"Error, unknown phase matching case {phase_matching_case}.")
+    return delta_k_term
+
 
 def pump_function(qpx: float, qpy: float, kp: float, omega: float, w0: float, d: float):
     """Function producing the Gaussian pump beam.
@@ -384,20 +413,7 @@ def get_rate_integrand(
         qi_abs = np.sqrt(qix ** 2 + qiy ** 2)
 
         # Calculate delta_k based on the type of phase-matching
-        if phase_matching_case == PhaseMatchingCase.TYPE_ONE:
-            delta_k_term = delta_k_type_1(
-                qsx=qsx, qix=qix, qsy=qsy, qiy=qiy, thetap=thetap, omegai=omegai, omegas=omegas,
-            )
-        elif phase_matching_case == PhaseMatchingCase.TYPE_TWO_SIGNAL:
-            delta_k_term = delta_k_type_2(
-                q1x=qsx, q2x=qix, q1y=qsy, q2y=qiy, thetap=thetap, omega1=omegas, omega2=omegai,
-            )
-        elif phase_matching_case == PhaseMatchingCase.TYPE_TWO_IDLER:
-            delta_k_term = delta_k_type_2(
-                q1x=qix, q2x=qsx, q1y=qiy, q2y=qsy, thetap=thetap, omega1=omegai, omega2=omegas,
-            )
-        else:
-            raise TypeError(f"Error, unknown phase matching case {phase_matching_case}.")
+        delta_k_term = get_phase_matching_term(qsx=qsx, qix=qix, qsy=qsy, qiy=qiy, thetap=thetap, omegas=omegas, omegai=omegai, phase_matching_case=phase_matching_case)
 
         # The exp(1j * ((qsx * xs_pos + qsy * ys_pos) + (qix * xi_pos + qiy * yi_pos))) portion of the
         # integrand (in the text) makes it a Fourier transform,
@@ -888,32 +904,21 @@ def simulate_phase_matching_function(simulation_parameters: dict):
     qix = (omega0 / C) * momentum_idler_x
     qiy = (omega0 / C) * momentum_idler_y
 
-    def my_function(oi, os, phase_matching_case):
-        # TODO, this is duplicate code within get_rate_integrand
-            # Calculate delta_k based on the type of phase-matching
-        if phase_matching_case == PhaseMatchingCase.TYPE_ONE:
-            delta_k_term = delta_k_type_1(
-                qsx=qsx, qix=qix, qsy=qsy, qiy=qiy, thetap=thetap, omegai=oi, omegas=os,
-            )
-        elif phase_matching_case == PhaseMatchingCase.TYPE_TWO_SIGNAL:
-            delta_k_term = delta_k_type_2(
-                q1x=qsx, q2x=qix, q1y=qsy, q2y=qiy, thetap=thetap, omega1=os, omega2=oi,
-            )
-        elif phase_matching_case == PhaseMatchingCase.TYPE_TWO_IDLER:
-            delta_k_term = delta_k_type_2(
-                q1x=qix, q2x=qsx, q1y=qiy, q2y=qsy, thetap=thetap, omega1=oi, omega2=os,
-            )
-        else:
-            raise TypeError(f"Error, unknown phase matching case {phase_matching_case}.")
+    def get_phase_matching_magnitude(omegai, omegas, phase_matching_case):
+        # Calculate delta_k based on the type of phase-matching
+        delta_k_term = get_phase_matching_term(qsx=qsx, qix=qix, qsy=qsy, qiy=qiy, thetap=thetap, omegas=omegas,
+                                               omegai=omegai, phase_matching_case=phase_matching_case)
+
         return np.abs(phase_matching(delta_k_term, crystal_length))
 
     if phase_matching_type == 1:
-        omegai_phase_matching = my_function(omegai_points, omegas_points, PhaseMatchingCase.TYPE_ONE)
-        omegas_phase_matching = my_function(omegas_points, omegai_points, PhaseMatchingCase.TYPE_ONE)
-    else:
-        omegai_phase_matching = my_function(omegai_points, omegas_points, PhaseMatchingCase.TYPE_TWO_IDLER)
-        omegas_phase_matching = my_function(omegai_points, omegas_points, PhaseMatchingCase.TYPE_TWO_SIGNAL)
+        omegai_phase_matching = get_phase_matching_magnitude(omegai_points, omegas_points, PhaseMatchingCase.TYPE_ONE)
 
+        # The phase matching function is symmetric between signal and idler for Type I.
+        omegas_phase_matching = omegai_phase_matching
+    else:
+        omegai_phase_matching = get_phase_matching_magnitude(omegai_points, omegas_points, PhaseMatchingCase.TYPE_TWO_IDLER)
+        omegas_phase_matching = get_phase_matching_magnitude(omegai_points, omegas_points, PhaseMatchingCase.TYPE_TWO_SIGNAL)
 
     # Get current time for file name
     time_str = get_current_time()
