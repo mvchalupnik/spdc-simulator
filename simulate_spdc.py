@@ -269,8 +269,8 @@ def delta_k_type_1(
     lambdai = (2 * np.pi * C) / omegai
     lambdap = (2 * np.pi * C) / omegap
 
-    qpx = qsx + qix  #
-    qpy = qsy + qiy  # Conservation of momentum
+    qpx = qsx + qix
+    qpy = qsy + qiy
     qs_abs = np.sqrt(qsx ** 2 + qsy ** 2)
     qi_abs = np.sqrt(qix ** 2 + qiy ** 2)
 
@@ -509,7 +509,7 @@ def calculate_rings(
     return result, xs, ys
 
 
-def simulate_ring_momentum(simulation_parameters,):
+def simulate_ring_momentum(simulation_parameters: dict):
     """
     Simulate and plot the ring for a plane in momentum space, given fixed (x, y) for signal and fixed (x, y) for idler.
 
@@ -585,16 +585,17 @@ def simulate_ring_momentum(simulation_parameters,):
         )
         Z1 = rate_integrand_2s(X, Y, 2 * X, 2 * Y) * np.exp(
             1j * (X * signal_x_pos + Y * signal_y_pos + X * idler_x_pos + Y * idler_y_pos)
-        )
-        +rate_integrand_2i(X, Y, 2 * X, 2 * Y) * np.exp(
+        ) + \
+        rate_integrand_2i(X, Y, 2 * X, 2 * Y) * np.exp(
             1j * (X * signal_x_pos + Y * signal_y_pos + X * idler_x_pos + Y * idler_y_pos)
         )
         Z2 = rate_integrand_2s(X, Y, 0, 0) * np.exp(
             1j * (X * signal_x_pos + Y * signal_y_pos - X * idler_x_pos - Y * idler_y_pos)
-        )
-        +rate_integrand_2i(X, Y, 0, 0) * np.exp(
+        ) + \
+        rate_integrand_2i(X, Y, 0, 0) * np.exp(
             1j * (X * signal_x_pos + Y * signal_y_pos - X * idler_x_pos - Y * idler_y_pos)
         )
+
     else:
         raise ValueError(f"Unknown phase_matching_type {phase_matching_type}.")
 
@@ -646,6 +647,7 @@ def simulate_ring_momentum(simulation_parameters,):
     cb4.ax.yaxis.offsetText.set_fontsize(4)
 
     plt.tight_layout()
+    import pdb; pdb.set_trace()
 
     # Get current time for file name
     time_str = get_current_time()
@@ -664,7 +666,7 @@ def simulate_ring_momentum(simulation_parameters,):
         file.write(json.dumps(simulation_parameters))
 
 
-def simulate_rings(simulation_parameters,):
+def simulate_rings(simulation_parameters: dict):
     """
     Simulate and plot entangled pair rings by integrating the conditional probability of detecting the
     signal photon given detecting the idler photon, integrating over the possible positions of the idler photon.
@@ -699,7 +701,6 @@ def simulate_rings(simulation_parameters,):
     ]  # Number of jobs to use for estimating the integral.
     save_directory = simulation_parameters["save_directory"]
 
-    # Run calculate_pair_generation_rate in parallel
     Z1, xis, yis = calculate_rings(
         thetap=thetap,
         omegai=omegai,
@@ -736,7 +737,7 @@ def simulate_rings(simulation_parameters,):
     )
     plt.xlabel("x (m)")
     plt.ylabel("y (m)")
-    plt.title("BBO crystal entangled photons rates")
+    plt.title("BBO crystal entangled photons")
     plt.savefig(
         f"{save_directory}/{time_str}_rings.png", dpi=300,
     )
@@ -759,6 +760,218 @@ def simulate_rings(simulation_parameters,):
     with open(f"{save_directory}/{time_str}_rings_time.txt", "w",) as file:
         file.write(json.dumps(time_info))
 
+def simulate_power_with_angle(simulation_parameters: dict):
+    """
+    Plot the total output power as a function of pump incidence angle.
 
-# Plot total output power as a function of theta_p and other params
-# TODO
+    :param simulation_parameters: A dict containing relevant parameters for running the simulation.
+    """
+    num_plot_qx_points = simulation_parameters["num_plot_qx_points"]
+    num_plot_qy_points = simulation_parameters["num_plot_qy_points"]
+
+    start_angle = simulation_parameters["start_angle"]
+    end_angle = simulation_parameters["end_angle"]
+    num_plot_angle_points = simulation_parameters["num_plot_angle_points"]
+
+    omegai = simulation_parameters["omegai"]  # Idler frequency (Radians / sec)
+    omegas = simulation_parameters["omegas"]  # Signal frequency (Radians / sec)
+    phase_matching_type = simulation_parameters[
+        "phase_matching_type"
+    ]  # Type I or Type II phase-matching
+
+    momentum_span_x = simulation_parameters["momentum_span_x"]
+    momentum_span_y = simulation_parameters["momentum_span_y"]
+    signal_x_pos = simulation_parameters["signal_x_pos"]
+    signal_y_pos = simulation_parameters["signal_y_pos"]
+    idler_x_pos = simulation_parameters["idler_x_pos"]
+    idler_y_pos = simulation_parameters["idler_y_pos"]
+    z_pos = simulation_parameters["z_pos"]
+    w0 = simulation_parameters["pump_waist_size"]
+    d = simulation_parameters["pump_waist_distance"]
+    crystal_length = simulation_parameters["crystal_length"]
+
+    save_directory = simulation_parameters["save_directory"]
+
+    qx = (omegai / C) * momentum_span_x
+    qy = (omegai / C) * momentum_span_y
+
+    angles = np.linspace(start_angle, end_angle, num_plot_angle_points)
+
+    x = np.linspace(-qx, qx, num_plot_qx_points)
+    y = np.linspace(-qy, qy, num_plot_qy_points)
+    X, Y = np.meshgrid(x, y)
+
+    def new_function(angle): # Todo not duplicate code, used for momentum function above also
+        if phase_matching_type == 1:
+            rate_integrand = get_rate_integrand(
+                thetap=angle,
+                omegai=omegai,
+                omegas=omegas,
+                z_pos=z_pos,
+                w0=w0,
+                d=d,
+                crystal_length=crystal_length,
+                phase_matching_case=PhaseMatchingCase.TYPE_ONE,
+            )
+            Z1 = rate_integrand(X, Y, 2 * X, 2 * Y) * np.exp(
+                1j * (X * signal_x_pos + Y * signal_y_pos + X * idler_x_pos + Y * idler_y_pos)
+            )
+            Z2 = rate_integrand(X, Y, 0, 0) * np.exp(
+                1j * (X * signal_x_pos + Y * signal_y_pos - X * idler_x_pos - Y * idler_y_pos)
+            )
+        elif phase_matching_type == 2:
+            rate_integrand_2s = get_rate_integrand(
+                thetap=angle,
+                omegai=omegai,
+                omegas=omegas,
+                z_pos=z_pos,
+                w0=w0,
+                d=d,
+                crystal_length=crystal_length,
+                phase_matching_case=PhaseMatchingCase.TYPE_TWO_SIGNAL,
+            )
+            rate_integrand_2i = get_rate_integrand(
+                thetap=angle,
+                omegai=omegai,
+                omegas=omegas,
+                z_pos=z_pos,
+                w0=w0,
+                d=d,
+                crystal_length=crystal_length,
+                phase_matching_case=PhaseMatchingCase.TYPE_TWO_IDLER,
+            )
+            Z1 = rate_integrand_2s(X, Y, 2 * X, 2 * Y) * np.exp(
+                1j * (X * signal_x_pos + Y * signal_y_pos + X * idler_x_pos + Y * idler_y_pos)
+            )
+            +rate_integrand_2i(X, Y, 2 * X, 2 * Y) * np.exp(
+                1j * (X * signal_x_pos + Y * signal_y_pos + X * idler_x_pos + Y * idler_y_pos)
+            )
+            Z2 = rate_integrand_2s(X, Y, 0, 0) * np.exp(
+                1j * (X * signal_x_pos + Y * signal_y_pos - X * idler_x_pos - Y * idler_y_pos)
+            )
+            +rate_integrand_2i(X, Y, 0, 0) * np.exp(
+                1j * (X * signal_x_pos + Y * signal_y_pos - X * idler_x_pos - Y * idler_y_pos)
+            )
+        else:
+            raise ValueError(f"Unknown phase_matching_type {phase_matching_type}.")
+        return Z2
+
+    powers = np.array([np.sum(np.abs(new_function(angle))**2) for angle in angles])
+
+    # Get current time for file name
+    time_str = get_current_time()
+
+    # Plot results
+    plt.figure(figsize=(8, 6))
+    plt.plot(angles * 180 / np.pi, powers)
+    plt.xlabel("Pump angle (degrees)")
+    plt.ylabel("Total output power (a.u.)")
+    plt.title(f"Total output power, type {phase_matching_type} SPDC")
+    plt.savefig(
+        f"{save_directory}/{time_str}_power.png", dpi=300,
+    )
+    plt.close()
+
+    # Save data to a pickled file #Should turn this into a function to reduce duplicate code TODO
+    with open(f"{save_directory}/{time_str}_power.pkl", "wb",) as file:
+        pickle.dump(powers, file)
+
+    # Save parameters to a pickled file
+    with open(f"{save_directory}/{time_str}_power_params.pkl", "wb",) as file:
+        pickle.dump(simulation_parameters, file)
+
+    # Save parameters to a text file
+    with open(f"{save_directory}/{time_str}_power_params.txt", "w",) as file:
+        file.write(json.dumps(simulation_parameters))
+
+
+def simulate_phase_matching_function(simulation_parameters: dict):
+    """
+    Simulate the phase matching function as a function of delta_k.
+
+    :param simulation_parameters: A dict containing relevant parameters for running the simulation.
+    """
+    omega0 = simulation_parameters["omega0"]  # Nominal angular frequency for the signal and idler (Radians / sec)
+    fraction_delta_omega = simulation_parameters["fraction_delta_omega"]  # Fraction of the nominal angular frequency to sweep over
+    momentum_signal_x = simulation_parameters["momentum_signal_x"]
+    momentum_signal_y = simulation_parameters["momentum_signal_y"]
+    momentum_idler_x = simulation_parameters["momentum_idler_x"]
+    momentum_idler_y = simulation_parameters["momentum_idler_y"]
+    thetap = simulation_parameters["thetap"]  # Incident pump angle, in Radians
+    phase_matching_type = simulation_parameters[
+        "phase_matching_type"
+    ]  # Type I or Type II phase-matching
+    crystal_length = simulation_parameters["crystal_length"]
+    save_directory = simulation_parameters["save_directory"]
+
+    delta_omega = omega0 * fraction_delta_omega # Fraction of the nominal frequency to sweep over
+    delta_omega_points = np.linspace(-delta_omega, delta_omega, 100)
+
+    omegas_points = omega0 + delta_omega_points / 2
+    omegai_points = omega0 - delta_omega_points / 2
+
+    qsx = (omega0 / C) * momentum_signal_x
+    qsy = (omega0 / C) * momentum_signal_y
+    qix = (omega0 / C) * momentum_idler_x
+    qiy = (omega0 / C) * momentum_idler_y
+
+    if phase_matching_type == 1:
+        phase_matching_case = PhaseMatchingCase.TYPE_ONE
+    else:
+        phase_matching_case = PhaseMatchingCase.TYPE_TWO_SIGNAL #TODO fix
+
+    def my_function(oi, os):
+        # TODO, this is duplicate code within get_rate_integrand
+            # Calculate delta_k based on the type of phase-matching
+        if phase_matching_case == PhaseMatchingCase.TYPE_ONE:
+            delta_k_term = delta_k_type_1(
+                qsx=qsx, qix=qix, qsy=qsy, qiy=qiy, thetap=thetap, omegai=oi, omegas=os,
+            )
+        elif phase_matching_case == PhaseMatchingCase.TYPE_TWO_SIGNAL:
+            delta_k_term = delta_k_type_2(
+                q1x=qsx, q2x=qix, q1y=qsy, q2y=qiy, thetap=thetap, omega1=os, omega2=oi,
+            )
+        elif phase_matching_case == PhaseMatchingCase.TYPE_TWO_IDLER:
+            delta_k_term = delta_k_type_2(
+                q1x=qix, q2x=qsx, q1y=qiy, q2y=qsy, thetap=thetap, omega1=oi, omega2=os,
+            )
+        else:
+            raise TypeError(f"Error, unknown phase matching case {phase_matching_case}.")
+        return np.abs(phase_matching(delta_k_term, crystal_length))
+
+
+    # Get current time for file name
+    time_str = get_current_time()
+
+    # Plot results
+    plt.figure(figsize=(8, 6))
+    delta_wavelength_points = (2 * np.pi * C) * delta_omega_points / omega0**2
+    omegai_phase_matching = my_function(omegai_points, omegas_points) #TODO check
+    omegas_phase_matching = my_function(omegas_points, omegai_points)
+
+    plt.plot(delta_wavelength_points * 1e9, omegai_phase_matching, label="signal") # TODO make sure order is right here
+    plt.plot(delta_wavelength_points * 1e9, omegas_phase_matching, '--', label="idler")
+
+    plt.xlabel("$\lambda_s - \lambda_i$ (nm)") #TODO check
+    plt.ylabel("Magnitude of phase matching function (a.u.)")
+    plt.title(f"Phase-matching, type {phase_matching_type} SPDC")
+    plt.legend()
+    plt.savefig(
+        f"{save_directory}/{time_str}_phase_matching.png", dpi=300,
+    )
+    plt.grid(True, linestyle='dashed')
+    plt.show()
+
+    plt.close()
+
+    # Save data to a pickled file #Should turn this into a function to reduce duplicate code TODO
+    with open(f"{save_directory}/{time_str}_phase_matching.pkl", "wb",) as file:
+        pickle.dump([delta_wavelength_points, omegai_phase_matching, omegas_phase_matching], file)
+
+    # Save parameters to a pickled file
+    with open(f"{save_directory}/{time_str}_phase_matching_params.pkl", "wb",) as file:
+        pickle.dump(simulation_parameters, file)
+
+    # Save parameters to a text file
+    with open(f"{save_directory}/{time_str}_phase_matching_params.txt", "w",) as file:
+        file.write(json.dumps(simulation_parameters))
