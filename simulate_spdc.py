@@ -2,9 +2,7 @@ import time
 import numpy as np
 import matplotlib.pyplot as plt
 from joblib import Parallel, delayed
-import pickle
-import json
-from file_utils import get_current_time
+from file_utils import get_current_time, save_data, save_time_info
 import gc
 from enum import Enum, auto
 from typing import Callable
@@ -696,13 +694,11 @@ def simulate_ring_momentum(simulation_parameters: dict):
     )
     plt.close()
 
-    # Save parameters to a pickled file
-    with open(f"{save_directory}/{time_str}_momentum_params.pkl", "wb",) as file:
-        pickle.dump(simulation_parameters, file)
-
-    # Save parameters to a text file
-    with open(f"{save_directory}/{time_str}_momentum_params.txt", "w",) as file:
-        file.write(json.dumps(simulation_parameters))
+    save_data(data_to_pickle=[Z1, Z2],
+              simulation_parameters=simulation_parameters,
+              save_directory_name=save_directory,
+              time_str=time_str,
+              data_name="momentum")
 
 
 def simulate_rings(simulation_parameters: dict):
@@ -782,22 +778,13 @@ def simulate_rings(simulation_parameters: dict):
     )
     plt.close()
 
-    # Save data to a pickled file
-    with open(f"{save_directory}/{time_str}_rings.pkl", "wb",) as file:
-        pickle.dump(Z1, file)
+    save_time_info(time_elapsed=end_time - start_time, save_directory_name=save_directory, time_str=time_str, data_name="rings")
+    save_data(data_to_pickle=[xis, yis, Z1],
+              simulation_parameters=simulation_parameters,
+              save_directory_name=save_directory,
+              time_str=time_str,
+              data_name="rings")
 
-    # Save parameters to a pickled file
-    with open(f"{save_directory}/{time_str}_rings_params.pkl", "wb",) as file:
-        pickle.dump(simulation_parameters, file)
-
-    # Save parameters to a text file
-    with open(f"{save_directory}/{time_str}_rings_params.txt", "w",) as file:
-        file.write(json.dumps(simulation_parameters))
-
-    # Save time to a text file
-    time_info = {"Time Elapsed in seconds": end_time - start_time}
-    with open(f"{save_directory}/{time_str}_rings_time.txt", "w",) as file:
-        file.write(json.dumps(time_info))
 
 def simulate_power_with_angle(simulation_parameters: dict):
     """
@@ -861,17 +848,11 @@ def simulate_power_with_angle(simulation_parameters: dict):
     )
     plt.close()
 
-    # Save data to a pickled file #Should turn this into a function to reduce duplicate code TODO
-    with open(f"{save_directory}/{time_str}_power.pkl", "wb",) as file:
-        pickle.dump(powers, file)
-
-    # Save parameters to a pickled file
-    with open(f"{save_directory}/{time_str}_power_params.pkl", "wb",) as file:
-        pickle.dump(simulation_parameters, file)
-
-    # Save parameters to a text file
-    with open(f"{save_directory}/{time_str}_power_params.txt", "w",) as file:
-        file.write(json.dumps(simulation_parameters))
+    save_data(data_to_pickle=[angles, powers],
+              simulation_parameters=simulation_parameters,
+              save_directory_name=save_directory,
+              time_str=time_str,
+              data_name="power")
 
 
 def simulate_phase_matching_function(simulation_parameters: dict):
@@ -940,14 +921,8 @@ def simulate_phase_matching_function(simulation_parameters: dict):
     )
     plt.close()
 
-    # Save data to a pickled file #Should turn this into a function to reduce duplicate code TODO
-    with open(f"{save_directory}/{time_str}_phase_matching.pkl", "wb",) as file:
-        pickle.dump([delta_wavelength_points, omegai_phase_matching, omegas_phase_matching], file)
-
-    # Save parameters to a pickled file
-    with open(f"{save_directory}/{time_str}_phase_matching_params.pkl", "wb",) as file:
-        pickle.dump(simulation_parameters, file)
-
-    # Save parameters to a text file
-    with open(f"{save_directory}/{time_str}_phase_matching_params.txt", "w",) as file:
-        file.write(json.dumps(simulation_parameters))
+    save_data(data_to_pickle=[delta_wavelength_points, omegai_phase_matching, omegas_phase_matching],
+              simulation_parameters=simulation_parameters,
+              save_directory_name=save_directory,
+              time_str=time_str,
+              data_name="phase_matching")

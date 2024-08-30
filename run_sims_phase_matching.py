@@ -19,7 +19,7 @@ def run_phase_matching_sims():
     :param phase_matching_type: The type of phase-matching (type I or type II).
     :param save_directory: The name of the directory to store plots in.
     """
-    dir_string = create_directory(data_directory_path="plots")
+    dir_string = create_directory(data_directory_path="plots-test")
 
     down_conversion_wavelength = 810e-9 # Wavelength of down-converted photons in meters
     crystal_length = 0.002  # Length of the nonlinear crystal in meters
