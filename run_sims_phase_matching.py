@@ -40,8 +40,8 @@ def run_phase_matching_sims():
     }
     simulate_phase_matching_function(simulation_parameters=simulation_parameters)
 
+    # The momentum locations are at the intersections of the two cones in momentum space.
     simulation_parameters = {
-        "thetap": 41.78 * np.pi / 180,
         "thetap": 41.78 * np.pi / 180,
         "omega0": (2 * np.pi * C) / down_conversion_wavelength,
         "fraction_delta_omega": 0.016,

@@ -511,10 +511,10 @@ def calculate_rings(
 
 def calculate_momentum_space_arrays(thetap: float, omegai: float, omegas: float, z_pos: float, w0: float, d: float,
     crystal_length: float, phase_matching_type: int, signal_x_pos: float, signal_y_pos: float, idler_x_pos: float, idler_y_pos: float, qx_grid: np.ndarray, qy_grid: np.ndarray):
-    """ Calculate arrays of photon coincidence count rates in momentum space. Two arrays will be returned: one for the case where
-    the momentum of the signal equals the momentum of the idler (useful for visualizing the pump beam but not the 
-    phase-matching function), and another for the case where the momentum of the signal equals the negative momentum of the idler
-    (useful for visualizing the phase-matching function).
+    """ Calculate arrays of photon coincidence count rates in momentum space, primarily useful for visualization purposes.
+    Two arrays will be returned: one for the case where the (x, y) momentum of the signal equals the momentum of the idler
+    (useful for visualizing the pump beam but not the phase-matching function), and another for the case where the (x, y) momentum
+    of the signal equals the negative momentum of the idler (useful for visualizing the phase-matching function).
 
     :param thetap: Angle theta in Radians along which pump photon enters BBO crystal (about y-axis).
     :param omegai: Angular frequency of the idler.
@@ -888,12 +888,7 @@ def simulate_phase_matching_function(simulation_parameters: dict):
     qix = (omega0 / C) * momentum_idler_x
     qiy = (omega0 / C) * momentum_idler_y
 
-    if phase_matching_type == 1:
-        phase_matching_case = PhaseMatchingCase.TYPE_ONE
-    else:
-        phase_matching_case = PhaseMatchingCase.TYPE_TWO_IDLER #TODO fix
-
-    def my_function(oi, os):
+    def my_function(oi, os, phase_matching_case):
         # TODO, this is duplicate code within get_rate_integrand
             # Calculate delta_k based on the type of phase-matching
         if phase_matching_case == PhaseMatchingCase.TYPE_ONE:
@@ -912,29 +907,32 @@ def simulate_phase_matching_function(simulation_parameters: dict):
             raise TypeError(f"Error, unknown phase matching case {phase_matching_case}.")
         return np.abs(phase_matching(delta_k_term, crystal_length))
 
+    if phase_matching_type == 1:
+        omegai_phase_matching = my_function(omegai_points, omegas_points, PhaseMatchingCase.TYPE_ONE)
+        omegas_phase_matching = my_function(omegas_points, omegai_points, PhaseMatchingCase.TYPE_ONE)
+    else:
+        omegai_phase_matching = my_function(omegai_points, omegas_points, PhaseMatchingCase.TYPE_TWO_IDLER)
+        omegas_phase_matching = my_function(omegai_points, omegas_points, PhaseMatchingCase.TYPE_TWO_SIGNAL)
+
 
     # Get current time for file name
     time_str = get_current_time()
 
     # Plot results
     plt.figure(figsize=(8, 6))
-    delta_wavelength_points = (2 * np.pi * C) * delta_omega_points / omega0**2
-    omegai_phase_matching = my_function(omegai_points, omegas_points) #TODO check
-    omegas_phase_matching = my_function(omegas_points, omegai_points)
+    delta_wavelength_points = -(2 * np.pi * C) * delta_omega_points / omega0**2
 
-    plt.plot(delta_wavelength_points * 1e9, omegai_phase_matching, label="signal") # TODO make sure order is right here
-    plt.plot(delta_wavelength_points * 1e9, omegas_phase_matching, '--', label="idler")
+    plt.plot(delta_wavelength_points * 1e9, omegas_phase_matching, label="signal")
+    plt.plot(delta_wavelength_points * 1e9, omegai_phase_matching, '--', label="idler")
 
-    plt.xlabel("$\lambda_s - \lambda_i$ (nm)") #TODO check
+    plt.xlabel("$\lambda_s - \lambda_i$ (nm)")
     plt.ylabel("Magnitude of phase matching function (a.u.)")
     plt.title(f"Phase-matching, type {phase_matching_type} SPDC")
     plt.legend()
+    plt.grid(True, linestyle='dashed')
     plt.savefig(
         f"{save_directory}/{time_str}_phase_matching.png", dpi=300,
     )
-    plt.grid(True, linestyle='dashed')
-    plt.show()
-
     plt.close()
 
     # Save data to a pickled file #Should turn this into a function to reduce duplicate code TODO
