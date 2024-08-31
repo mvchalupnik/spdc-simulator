@@ -26,15 +26,15 @@ phase-matching expressions, pump beam expressions, coincidence count rate expres
 <table>
   <tr>
     <td style="text-align:center;">
-      <img src="imgs/type1a.png" alt="$\theta = 28.64 \deg$" width="200"/><br>
-      <b>$\theta = 28.64 \deg$</b>
+      <img src="imgs/type1a.png" alt="$\theta = 28.64 \deg$" width="240"/><br>
+      <b>\(\theta = 28.64 \deg\)</b>
     </td>
     <td style="text-align:center;">
-      <img src="imgs/type1b.png" alt="$\theta = 28.74 \deg$" width="200"/><br>
-      <b>$\theta = 28.74 \deg$</b>
+      <img src="imgs/type1b.png" alt="$\theta = 28.74 \deg$" width="240"/><br>
+      $\theta = 28.74 \deg$
     </td>
     <td style="text-align:center;">
-      <img src="imgs/type1c.png" alt="$\theta = 28.95 \deg$" width="200"/><br>
+      <img src="imgs/type1c.png" alt="$\theta = 28.95 \deg$" width="240"/><br>
       <b>$\theta = 28.95 \deg$</b>
     </td>
   </tr>
