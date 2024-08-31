@@ -27,20 +27,40 @@ phase-matching expressions, pump beam expressions, coincidence count rate expres
   <tr>
     <td style="text-align:center;">
       <img src="imgs/type1a.png" alt="$\theta = 28.64 \degree$" width="240"/><br>
-      $theta = 28.64 \: \degree$$
+      $\theta = 28.64 \degree$
     </td>
     <td style="text-align:center;">
       <img src="imgs/type1b.png" alt="$\theta = 28.74 \degree$" width="240"/><br>
-      $\theta = 28.74 \: \degree$
+      $\theta = 28.74 \degree$
     </td>
     <td style="text-align:center;">
       <img src="imgs/type1c.png" alt="$\theta = 28.95 \degree$" width="240"/><br>
-      <div style="text-align:center;">$\theta = 28.95 \: \degree$</div>
+      $\theta = 28.95 \degree$
     </td>
   </tr>
 </table>
 
 `run_sims_typeII.py` reproduces figure 9 from J. Opt. 22 (2020) 083501. My results:
+<table>
+  <tr>
+    <td style="text-align:center;">
+      <img src="imgs/type2a.png" alt="$\theta = 40.48 \degree$" width="200"/><br>
+      $\theta = 40.48 \degree$
+    </td>
+    <td style="text-align:center;">
+      <img src="imgs/type2b.png" alt="$\theta = 40.99 \degree$" width="200"/><br>
+      $\theta = 40.99 \degree$
+    </td>
+    <td style="text-align:center;">
+      <img src="imgs/type2c.png" alt="$\theta = 41.40 \degree$" width="200"/><br>
+      $\theta = 41.40 \degree$
+    </td>
+    <td style="text-align:center;">
+      <img src="imgs/type2d.png" alt="$\theta = 41.78 \degree$" width="200"/><br>
+      $\theta = 41.78 \degree$
+    </td>
+  </tr>
+</table>
 
 
 ### How to install and run
