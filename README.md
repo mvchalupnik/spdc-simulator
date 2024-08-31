@@ -3,7 +3,7 @@
 ### Introduction
 Spontaneous parametric down-conversion is a process in which one higher energy photon is converted into two
 lower energy photons which can be entangled in momentum (k-vector) and polarization. Bulk crystals such as
-beta-barium borate (BBO) which have $chi^{(2)}$ nonlinearities are often used as relatively low cost platforms for spontaneous parametric down-conversion. BBO crystals can be used to facilitate both type I and type II SPDC processes. For a type I process, the two 
+beta-barium borate (BBO) which have $\chi^{(2)}$ nonlinearities are often used as relatively low cost platforms for spontaneous parametric down-conversion. BBO crystals can be used to facilitate both type I and type II SPDC processes. For a type I process, the two 
 entangled and down-converted photons (referred to as "signal" and "idler") share the same polarization. For a type II process,
 the signal and idler photon will have opposite polarizations. 
 
@@ -17,8 +17,8 @@ phase-matching expressions, pump beam expressions, coincidence count rate expres
 - `run_momentum_sims.py`: Run simulations to visualize the SPDC photons in momentum-space. 
 - `run_sims_phase_matching.py`: Run simulations to visualize SPDC phase-matching functions.
 - `run_sims_power_angle.py`: Run simulations to plot power output with tilt angle. (Reproduce figure 10 of J. Opt. 22 (2020) 083501)
-- `run_sims_typeI.py`: Run simulations to plot photon intensity from type I phase-matched SPDC for three different tilt angles. (Reproduce figure 8 of J. Opt. 22 (2020) 083501). This script requires significant RAM to run: I used a GCP instance with 112 cores and 224 GB RAM. 
-- `run_sims_typeII.py`: Run simulations to plot photon intensity from type II phase-matched SPDC for three different tilt angles. (Reproduce figure 9 of J. Opt. 22 (2020) 083501). This script requires significant RAM to run: I used a GCP instance with 112 cores and 224 GB RAM. 
+- `run_sims_typeI.py`: Run simulations to plot photon intensity from type I phase-matched SPDC for three different tilt angles. (Reproduce figure 8 of J. Opt. 22 (2020) 083501). This script requires a significant amount of RAM to run: I used a GCP instance with 112 cores and 224 GB RAM. 
+- `run_sims_typeII.py`: Run simulations to plot photon intensity from type II phase-matched SPDC for three different tilt angles. (Reproduce figure 9 of J. Opt. 22 (2020) 083501). This script requires a significant amount of RAM to run: I used a GCP instance with 112 cores and 224 GB RAM. 
 - `simulate_spdc.py`: Contains functions for simulating photon intensity, phase-matching, and total output power for SPDC photons.
 
 ### Example results
@@ -27,7 +27,7 @@ phase-matching expressions, pump beam expressions, coincidence count rate expres
   <tr>
     <td style="text-align:center;">
       <img src="imgs/type1a.png" alt="$\theta = 28.64 \degree$" width="240"/><br>
-      $\theta = 28.64 \degree$
+      \n $\theta = 28.64 \degree$
     </td>
     <td style="text-align:center;">
       <img src="imgs/type1b.png" alt="$\theta = 28.74 \degree$" width="240"/><br>
@@ -95,5 +95,50 @@ source myvenv/bin/activate
 python [script_name].py
 ```
 
-### Additional plots
+### Additional "art" plots
+Additional plots made along the way which looked cool:
+<table>
+  <tr>
+    <td style="text-align:center;">
+      <img src="imgs/eclipse1.png" width="200"/><br>
+    </td>
+    <td style="text-align:center;">
+      <img src="imgs/eclipse2.png" width="200"/><br>
+    </td>
+    <td style="text-align:center;">
+      <img src="imgs/eclipse3.png" width="200"/><br>
+    </td>
+    <td style="text-align:center;">
+      <img src="imgs/eclipse4.png" width="200"/><br>
+    </td>
+  </tr>
+  <tr>
+    <td style="text-align:center;">
+      <img src="imgs/blobs1.png" width="200"/><br>
+    </td>
+    <td style="text-align:center;">
+      <img src="imgs/blobs2.png" width="200"/><br>
+    </td>
+    <td style="text-align:center;">
+      <img src="imgs/flower1.png" width="200"/><br>
+    </td>
+    <td style="text-align:center;">
+      <img src="imgs/flower2.png" width="200"/><br>
+    </td>
+  </tr>
+  <tr>
+    <td style="text-align:center;">
+      <img src="imgs/hypnosis1.png" width="200"/><br>
+    </td>
+    <td style="text-align:center;">
+      <img src="imgs/hypnosis2.png" width="200"/><br>
+    </td>
+    <td style="text-align:center;">
+      <img src="imgs/geometric.png" width="200"/><br>
+    </td>
+    <td style="text-align:center;">
+      <img src="imgs/hat.png" width="200"/><br>
+    </td>
+  </tr>
+</table>
 
