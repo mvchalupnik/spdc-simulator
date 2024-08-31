@@ -27,7 +27,7 @@ phase-matching expressions, pump beam expressions, coincidence count rate expres
   <tr>
     <td style="text-align:center;">
       <img src="imgs/type1a.png" alt="$\theta = 28.64 \degree$" width="240"/><br>
-      \n $\theta = 28.64 \degree$
+      $\theta = 28.64 \degree$
     </td>
     <td style="text-align:center;">
       <img src="imgs/type1b.png" alt="$\theta = 28.74 \degree$" width="240"/><br>
